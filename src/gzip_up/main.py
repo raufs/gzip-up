@@ -155,7 +155,7 @@ def create_colored_parser():
     # Slurm options
     slurm_group = parser.add_argument_group(
         "• Slurm Integration Options",
-        "Configure Slurm batch job parameters"
+        "Configure Slurm batch job parameters (uses job arrays for parallelization)"
     )
     slurm_group.add_argument(
         '--slurm', 
@@ -214,6 +214,11 @@ def create_colored_parser():
     slurm_params_group.add_argument(
         '--mem', 
         help='• Memory per node (e.g., 8G, 16GB)',
+        metavar='MEM'
+    )
+    slurm_params_group.add_argument(
+        '--mem-per-cpu', 
+        help='• Memory per CPU (e.g., 1G, 2GB) - overrides --mem if specified',
         metavar='MEM'
     )
     slurm_params_group.add_argument(
@@ -295,6 +300,7 @@ def main():
             'ntasks': args.ntasks,
             'cpus_per_task': args.cpus_per_task,
             'mem': args.mem,
+            'mem_per_cpu': args.mem_per_cpu,
             'time': args.time,
             'output': args.output_log,
             'error': args.error_log
@@ -331,6 +337,8 @@ def main():
             print("To run manually:")
             print(f"  # Submit to Slurm: sbatch {script_path}")
             print(f"  # Run locally: parallel < {task_file}")
+            print(f"  # Note: SLURM script uses job arrays - each task processes one file from {task_file}")
+            print(f"  # Defaults: partition=short, time=02:00:00, mem-per-cpu=1G")
     else:
         print_section("• Ready for Execution")
         print_status(f"Task file: {task_file}", "•")
