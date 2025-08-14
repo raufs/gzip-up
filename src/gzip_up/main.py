@@ -279,11 +279,26 @@ def main():
     
     # Generate task file
     print_section("• Task File Generation")
-    task_file = generate_task_file(files, args.output, args.auto_run)
+    
+    # Determine if we should use chunking (only for --auto-run with >1000 files)
+    use_chunking = args.auto_run and len(files) > 1000
+    
+    if use_chunking:
+        print_status("Using chunked approach for --auto-run with large file count", "[INFO]")
+        result = generate_task_file(files, args.output, True)  # auto_run=True
+    else:
+        print_status("Using standard approach (no chunking)", "[INFO]")
+        result = generate_task_file(files, args.output, False)  # auto_run=False
+    
+    # Handle return value (could be just path or tuple with temp_dir)
+    if isinstance(result, tuple):
+        task_file, temp_dir = result
+    else:
+        task_file = result
+        temp_dir = None
     
     # Check if chunking was used
     is_chunked = False
-    temp_dir = None
     try:
         with open(task_file, 'r') as f:
             for line in f:
@@ -292,10 +307,8 @@ def main():
                     break
         
         # Check if this is a temporary directory
-        if is_chunked:
-            temp_dir = os.path.dirname(task_file)
-            if os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
-                print_status(f"Using temporary chunked files in: {temp_dir}", "[INFO]")
+        if temp_dir and os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
+            print_status(f"Using temporary chunked files in: {temp_dir}", "[INFO]")
     except Exception:
         pass
     
@@ -319,6 +332,21 @@ def main():
     # Generate Slurm script if requested
     if args.slurm:
         print_section("• Slurm Script Generation")
+        
+        # Use chunked file for SLURM if available, otherwise use main task file
+        slurm_task_file = task_file
+        if temp_dir and os.path.exists(os.path.join(temp_dir, os.path.basename(args.output))):
+            slurm_task_file = os.path.join(temp_dir, os.path.basename(args.output))
+            print_status(f"SLURM will use chunked task file: {slurm_task_file}", "[INFO]")
+            print_status("Job array will be limited to 1000 tasks (chunked execution)", "[INFO]")
+        else:
+            print_status(f"SLURM will use main task file: {slurm_task_file}", "[INFO]")
+            if len(files) > 1000:
+                print_status(f"Large job array will be created: {len(files)} tasks", "[INFO]")
+                print_status("Note: Some SLURM clusters may have array size limits", "[WARN]")
+            else:
+                print_status(f"Job array size: {len(files)} tasks", "[INFO]")
+        
         slurm_args = {
             'partition': args.partition,
             'nodes': args.nodes,
@@ -334,7 +362,7 @@ def main():
         # Remove None values
         slurm_args = {k: v for k, v in slurm_args.items() if v is not None}
         
-        script_path = generate_slurm_script(files, slurm_args, task_file)
+        script_path = generate_slurm_script(files, slurm_args, slurm_task_file)
         
         if args.auto_run:
             print_section("• Slurm Job Submission")

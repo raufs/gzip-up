@@ -150,7 +150,7 @@ def generate_chunked_task_file(files: List[str], output_file: str = "gzip.cmds",
 def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_run: bool = False) -> str:
     """
     Generate a task file with gzip commands for the found files.
-    Automatically uses chunked approach if more than 1000 files and auto_run is True.
+    Always creates the full task file, and optionally creates chunked versions for auto-run.
     
     Args:
         files: List of file paths to compress
@@ -158,29 +158,9 @@ def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_ru
         auto_run: Whether this is for auto-execution (affects chunking behavior)
         
     Returns:
-        Path to the generated task file
+        Path to the generated task file (main file, not chunked)
     """
-    # Use chunked approach if more than 1000 files AND auto_run is requested
-    if len(files) > 1000 and auto_run:
-        print_status("More than 1000 files detected with --auto-run, using chunked approach for SLURM compatibility", "[INFO]")
-        # Create temporary directory for chunked files
-        import tempfile
-        temp_dir = tempfile.mkdtemp(prefix="gzip_up_chunks_")
-        temp_output_file = os.path.join(temp_dir, os.path.basename(output_file))
-        
-        task_file_path, _, _ = generate_chunked_task_file(files, temp_output_file)
-        
-        # Store temp directory info for cleanup later
-        task_file_path = temp_output_file
-        # Add a marker file to indicate this is a temp directory
-        with open(os.path.join(temp_dir, ".gzip_up_temp"), 'w') as f:
-            f.write(f"Original output: {output_file}\n")
-            f.write(f"Created: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        
-        print_status(f"Chunked files created in temporary directory: {temp_dir}", "[INFO]")
-        return task_file_path
-    
-    # Original logic for 1000 or fewer files, or when auto_run is False
+    # Always create the full task file first
     task_file_path = os.path.abspath(output_file)
     
     print_status(f"Generating task file: {task_file_path}")
@@ -238,6 +218,54 @@ def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_ru
     
     print_status(f"Task file created with {commands_written} gzip commands", "[OK]")
     
+    # If auto_run is requested and there are more than 1000 files, create chunked versions
+    if auto_run and len(files) > 1000:
+        print_status("More than 1000 files detected with --auto-run, creating chunked versions for SLURM compatibility", "[INFO]")
+        
+        # Calculate optimal chunking to stay under 1000 jobs
+        total_files = len(files)
+        max_jobs = 1000
+        
+        # Calculate minimum commands per job needed to stay under 1000 jobs
+        commands_per_job = max(1, (total_files + max_jobs - 1) // max_jobs)
+        actual_jobs = min(max_jobs, (total_files + commands_per_job - 1) // commands_per_job)
+        
+        # Ensure we don't exceed max_jobs
+        if actual_jobs > max_jobs:
+            commands_per_job = max(1, total_files // max_jobs)
+            actual_jobs = max_jobs
+        
+        print_status(f"SLURM array limit: {max_jobs} max jobs", "[INFO]")
+        print_status(f"Files to compress: {total_files}", "[INFO]")
+        print_status(f"Jobs to submit: {actual_jobs}", "[INFO]")
+        print_status(f"Commands per job: {commands_per_job}", "[INFO]")
+        print_status(f"Estimated time per job: {30 + (commands_per_job - 1) * 5} minutes", "[INFO]")
+        
+        # Create temporary directory in current working directory
+        temp_dir = os.path.join(os.getcwd(), f"gzip_up_chunks_{int(time.time())}")
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        temp_output_file = os.path.join(temp_dir, os.path.basename(output_file))
+        
+        # Create chunked version
+        chunked_path, _, _ = generate_chunked_task_file(files, temp_output_file, max_jobs)
+        
+        # Add a marker file to indicate this is a temp directory
+        with open(os.path.join(temp_dir, ".gzip_up_temp"), 'w') as f:
+            f.write(f"Original output: {output_file}\n")
+            f.write(f"Created: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Chunked for SLURM: {actual_jobs} jobs, {commands_per_job} commands per job\n")
+            f.write(f"SLURM array limit: {max_jobs} max jobs\n")
+        
+        print_status(f"Chunked files created in temporary directory: {temp_dir}", "[INFO]")
+        print_status(f"Main task file remains: {task_file_path}", "[INFO]")
+        print_status(f"SLURM will use chunked version from: {chunked_path}", "[INFO]")
+        print_status(f"Job array size will be: {actual_jobs} (within {max_jobs} limit)", "[INFO]")
+        
+        # Store temp directory info for cleanup later (return as tuple)
+        return task_file_path, temp_dir
+    
+    # Return just the main file path if no chunking
     return task_file_path
 
 

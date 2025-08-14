@@ -55,7 +55,7 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
         'ntasks': '1',
         'cpus_per_task': '1',
         'mem_per_cpu': '1G',
-        'time': '02:00:00',
+        'time': '00:30:00',  # 30 minutes default
         'output': 'gzip_slurm.out',
         'error': 'gzip_slurm.err'
     }
@@ -68,10 +68,33 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
     # Adjust time and resources for chunked execution
     if is_chunked:
         print_status("Detected chunked task file - adjusting SLURM parameters for longer-running jobs", "[INFO]")
-        # Increase time for chunked jobs (each job does multiple gzip operations)
-        if slurm_args['time'] == '02:00:00':  # Only adjust if using default
-            slurm_args['time'] = '10:00:00'  # 10 minutes instead of 2
-        # Could also adjust memory/CPU if needed
+        # Calculate time increase based on chunk size
+        try:
+            with open(task_file, 'r') as tf:
+                for line in tf:
+                    stripped = line.strip()
+                    if stripped and not stripped.startswith('#'):
+                        # Count semicolons to estimate commands per chunk
+                        commands_per_chunk = stripped.count(';') + 1
+                        # Increase time proportionally: 30 min base + 5 min per additional command
+                        additional_minutes = (commands_per_chunk - 1) * 5
+                        total_minutes = 30 + additional_minutes
+                        
+                        # Convert to HH:MM:SS format
+                        hours = total_minutes // 60
+                        minutes = total_minutes % 60
+                        new_time = f"{hours:02d}:{minutes:02d}:00"
+                        
+                        if slurm_args['time'] == '00:30:00':  # Only adjust if using default
+                            slurm_args['time'] = new_time
+                            print_status(f"Adjusted time from 30 min to {new_time} ({commands_per_chunk} commands per chunk)", "[INFO]")
+                        break
+        except Exception as e:
+            print_status(f"Could not calculate optimal time for chunked execution: {e}", "[WARN]")
+            # Fallback: use 2 hours for chunked jobs
+            if slurm_args['time'] == '00:30:00':
+                slurm_args['time'] = '02:00:00'
+                print_status("Using fallback time of 2 hours for chunked execution", "[WARN]")
     
     with open(script_path, 'w') as f:
         f.write("#!/bin/bash\n")
