@@ -10,6 +10,7 @@ import os
 import sys
 import argparse
 from typing import List, Set
+from rich_argparse import RichHelpFormatter
 from .utils import (
     print_header, print_section, print_status, print_progress, 
     display_file_summary
@@ -17,6 +18,25 @@ from .utils import (
 from .file_operations import generate_task_file, find_files_with_suffixes
 from .slurm_operations import generate_slurm_script, run_on_slurm
 from . import __version__
+
+
+class CustomRichHelpFormatter(RichHelpFormatter):
+    """Custom formatter that preserves epilog formatting while using rich-argparse."""
+    
+    def _format_text(self, text):
+        """Override to preserve newlines in epilog while keeping rich formatting."""
+        if text.startswith('Examples:'):
+            # For epilog, preserve formatting exactly as written
+            return text
+        else:
+            # For other text, use rich formatting
+            return super()._format_text(text)
+    
+    def _format_epilog(self, epilog):
+        """Override epilog formatting to preserve newlines."""
+        if epilog:
+            return epilog
+        return ""
 
 
 def print_logo():
@@ -48,6 +68,15 @@ def print_colored_banner():
     →  License: GNU GPL v3.0
     """
     print(banner)
+
+
+def print_examples():
+    """Print usage examples."""
+    print("\nExamples:")
+    print("  gzip-up -s .txt .log")
+    print("  gzip-up -d /path/to/files -s .txt .log -o my_tasks.cmds")
+    print("  gzip-up -s .txt .log --local-run --threads 4")
+    print("  gzip-up -s .txt .log --slurm --auto-run")
 
 
 def validate_suffixes(suffixes: List[str]) -> Set[str]:
@@ -94,17 +123,8 @@ def create_colored_parser():
     """Create a colorful and enhanced argument parser."""
     parser = argparse.ArgumentParser(
         description="Generate gzip task files and optionally run on Slurm or locally using threading",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  gzip-up -s .txt .log
-
-  gzip-up -d /path/to/files -s .txt .log -o my_tasks.cmds
-
-  gzip-up -s .txt .log --local-run --threads 4
-
-  gzip-up -s .txt .log --slurm --auto-run
-        """,
+        formatter_class=CustomRichHelpFormatter,
+        epilog="",
         add_help=True
     )
     
