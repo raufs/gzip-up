@@ -23,7 +23,7 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
     Returns:
         Path to the generated Slurm script
     """
-    script_path = "gzip_slurm.sh"
+    script_path = os.path.abspath("gzip_slurm.sh")
     
     print_status(f"Generating Slurm script: {script_path}")
     
