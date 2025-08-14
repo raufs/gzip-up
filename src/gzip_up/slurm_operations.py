@@ -9,13 +9,14 @@ from typing import List, Dict
 from .utils import print_status
 
 
-def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
+def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_file: str = "gzip.cmds") -> str:
     """
     Generate a Slurm batch script for gzip operations using job arrays.
     
     Args:
-        files: List of file paths to compress
+        files: List of file paths to compress (used only for info)
         slurm_args: Dictionary of Slurm parameters
+        task_file: Path to the task file containing one gzip command per line
         
     Returns:
         Path to the generated Slurm script
@@ -24,9 +25,22 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
     
     print_status(f"Generating Slurm script: {script_path}")
     
-    # Count uncompressed files for array size
-    uncompressed_files = [f for f in files if not f.endswith('.gz')]
-    array_size = len(uncompressed_files)
+    # Determine array size by counting non-empty, non-comment lines in task_file
+    try:
+        array_size = 0
+        with open(task_file, 'r') as tf:
+            for line in tf:
+                stripped = line.strip()
+                if stripped and not stripped.startswith('#'):
+                    array_size += 1
+    except Exception as e:
+        print_status(f"Failed to read task file '{task_file}': {e}", "[ERROR]")
+        array_size = 0
+    
+    # Ensure at least 1 to satisfy SLURM; runtime guard will no-op if no command
+    if array_size == 0:
+        print_status("No commands found in task file; array size will be set to 1 and tasks will no-op", "[WARN]")
+        array_size = 1
     
     # Set default SLURM parameters if not provided
     defaults = {
@@ -64,7 +78,7 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
         
         f.write("\n# Gzip compression job using job array\n")
         f.write("# Each array task processes one file from the task file\n")
-        f.write("# This script expects gzip.cmds to exist in the same directory\n\n")
+        f.write("# This script expects the task file to exist at submission time\n\n")
         
         f.write("echo \"Starting gzip compression job\"\n")
         f.write("echo \"Job ID: $SLURM_JOB_ID\"\n")
@@ -72,10 +86,16 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
         f.write("echo \"Total array size: $SLURM_ARRAY_TASK_COUNT\"\n\n")
         
         f.write("# Specify the path to the task file\n")
-        f.write("task_file=\"gzip.cmds\"\n\n")
+        f.write(f"task_file=\"{task_file}\"\n\n")
         
         f.write("# Extract the individual command for this array task\n")
-        f.write("gcmd=$(awk -v SID=$SLURM_ARRAY_TASK_ID 'NR==SID {print; exit}' $task_file)\n\n")
+        f.write("gcmd=$(awk -v SID=$SLURM_ARRAY_TASK_ID 'NR==SID {print; exit}' \"$task_file\")\n\n")
+        
+        f.write("# If no command is found (empty line or out-of-range), exit gracefully\n")
+        f.write("if [ -z \"$gcmd\" ]; then\n")
+        f.write("  echo \"No command found for task $SLURM_ARRAY_TASK_ID; exiting\"\n")
+        f.write("  exit 0\n")
+        f.write("fi\n\n")
         
         f.write("echo \"Executing command: $gcmd\"\n")
         f.write("echo \"Processing file: $SLURM_ARRAY_TASK_ID of $SLURM_ARRAY_TASK_COUNT\"\n\n")
@@ -89,7 +109,7 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
     os.chmod(script_path, 0o755)
     
     print_status(f"Slurm script created and made executable", "[OK]")
-    print_status(f"Job array size: {array_size} tasks", "[INFO]")
+    print_status(f"Job array size (from task file): {array_size} tasks", "[INFO]")
     print_status(f"Using defaults: partition={slurm_args['partition']}, time={slurm_args['time']}, mem-per-cpu={slurm_args['mem_per_cpu']}", "[INFO]")
     
     return script_path

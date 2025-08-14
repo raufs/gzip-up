@@ -46,7 +46,7 @@ def print_colored_banner():
     banner = f"""
     →  gzip-up Task Generator v1.0.0
     →  High-Performance File Compression Made Easy
-    →  Developed by Rauf Salamzade
+    →  Designed by Rauf Salamzade
     →  Relman Lab, 2025, Stanford University
     →  https://github.com/raufs/gzip-up
     →  BSD-3-Clause License
@@ -309,7 +309,7 @@ def main():
         # Remove None values
         slurm_args = {k: v for k, v in slurm_args.items() if v is not None}
         
-        script_path = generate_slurm_script(files, slurm_args)
+        script_path = generate_slurm_script(files, slurm_args, task_file)
         
         if args.auto_run:
             print_section("• Slurm Job Submission")
