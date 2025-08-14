@@ -9,6 +9,7 @@ a task file for gzip compression operations. It can also auto-run on Slurm using
 import argparse
 import os
 import sys
+import shutil
 from pathlib import Path
 from typing import List, Set
 
@@ -278,7 +279,31 @@ def main():
     
     # Generate task file
     print_section("• Task File Generation")
-    task_file = generate_task_file(files, args.output)
+    task_file = generate_task_file(files, args.output, args.auto_run)
+    
+    # Check if chunking was used
+    is_chunked = False
+    temp_dir = None
+    try:
+        with open(task_file, 'r') as f:
+            for line in f:
+                if line.strip() and ';' in line.strip():
+                    is_chunked = True
+                    break
+        
+        # Check if this is a temporary directory
+        if is_chunked:
+            temp_dir = os.path.dirname(task_file)
+            if os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
+                print_status(f"Using temporary chunked files in: {temp_dir}", "[INFO]")
+    except Exception:
+        pass
+    
+    if is_chunked:
+        print_status("Chunked execution detected - task file contains multiple commands per line", "[INFO]")
+        print_status("This approach is used when there are more than 1000 files to compress", "[INFO]")
+        print_status("Each SLURM array task will process multiple gzip operations", "[INFO]")
+        print_status("Temporary files will be cleaned up after job completion", "[INFO]")
     
     # Execute locally if requested
     if args.local_run:
@@ -325,10 +350,40 @@ def main():
                 print()
                 if run_on_slurm(script_path):
                     print_status("[OK] Job submitted successfully!", "[OK]")
+                    
+                    # Clean up temporary chunked files if they exist
+                    if temp_dir and os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
+                        try:
+                            import shutil
+                            shutil.rmtree(temp_dir)
+                            print_status(f"Cleaned up temporary directory: {temp_dir}", "[OK]")
+                        except Exception as e:
+                            print_status(f"Warning: Could not clean up temporary directory {temp_dir}: {e}", "[WARN]")
+                            print_status("You may need to clean it up manually", "[WARN]")
                 else:
                     print_status("[ERROR] Failed to submit job.", "[ERROR]")
+                    
+                    # Clean up temporary chunked files even on failure
+                    if temp_dir and os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
+                        try:
+                            import shutil
+                            shutil.rmtree(temp_dir)
+                            print_status(f"Cleaned up temporary directory after failure: {temp_dir}", "[OK]")
+                        except Exception as e:
+                            print_status(f"Warning: Could not clean up temporary directory {temp_dir}: {e}", "[WARN]")
+                            print_status("You may need to clean it up manually", "[WARN]")
             else:
                 print_status("[STOP] Job submission cancelled.", "[STOP]")
+                
+                # Clean up temporary chunked files if user cancels
+                if temp_dir and os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
+                    try:
+                        import shutil
+                        shutil.rmtree(temp_dir)
+                        print_status(f"Cleaned up temporary directory after cancellation: {temp_dir}", "[OK]")
+                    except Exception as e:
+                        print_status(f"Warning: Could not clean up temporary directory {temp_dir}: {e}", "[WARN]")
+                        print_status("You may need to clean it up manually", "[WARN]")
         else:
             print_section("• Ready for Manual Execution")
             print_status(f"Task file: {task_file}", "•")

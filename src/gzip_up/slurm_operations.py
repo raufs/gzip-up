@@ -14,6 +14,7 @@ from .utils import print_status
 def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_file: str = "gzip.cmds") -> str:
     """
     Generate a Slurm batch script for gzip operations using job arrays.
+    Automatically handles chunked execution for large numbers of files.
     
     Args:
         files: List of file paths to compress (used only for info)
@@ -30,11 +31,15 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
     # Determine array size by counting non-empty, non-comment lines in task_file
     try:
         array_size = 0
+        is_chunked = False
         with open(task_file, 'r') as tf:
             for line in tf:
                 stripped = line.strip()
                 if stripped and not stripped.startswith('#'):
                     array_size += 1
+                    # Check if this is a chunked command (contains semicolons)
+                    if ';' in stripped:
+                        is_chunked = True
     except Exception as e:
         print_status(f"Failed to read task file '{task_file}': {e}", "[ERROR]")
         array_size = 0
@@ -51,14 +56,22 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
         'cpus_per_task': '1',
         'mem_per_cpu': '1G',
         'time': '02:00:00',
-        'output': 'gzip-up_%j.out',
-        'error': 'gzip-up_%j.err'
+        'output': 'gzip_slurm.out',
+        'error': 'gzip_slurm.err'
     }
     
     # Merge user-provided args with defaults
     for key, default_value in defaults.items():
         if key not in slurm_args or slurm_args[key] is None:
             slurm_args[key] = default_value
+    
+    # Adjust time and resources for chunked execution
+    if is_chunked:
+        print_status("Detected chunked task file - adjusting SLURM parameters for longer-running jobs", "[INFO]")
+        # Increase time for chunked jobs (each job does multiple gzip operations)
+        if slurm_args['time'] == '02:00:00':  # Only adjust if using default
+            slurm_args['time'] = '10:00:00'  # 10 minutes instead of 2
+        # Could also adjust memory/CPU if needed
     
     with open(script_path, 'w') as f:
         f.write("#!/bin/bash\n")
@@ -79,13 +92,19 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
             f.write(f"#SBATCH --mem={slurm_args['mem']}\n")
         
         f.write("\n# Gzip compression job using job array\n")
-        f.write("# Each array task processes one file from the task file\n")
+        if is_chunked:
+            f.write("# Each array task processes multiple files (chunked execution)\n")
+        else:
+            f.write("# Each array task processes one file from the task file\n")
         f.write("# This script expects the task file to exist at submission time\n\n")
         
         f.write("echo \"Starting gzip compression job\"\n")
         f.write("echo \"Job ID: $SLURM_JOB_ID\"\n")
         f.write("echo \"Array Task ID: $SLURM_ARRAY_TASK_ID\"\n")
-        f.write("echo \"Total array size: $SLURM_ARRAY_TASK_COUNT\"\n\n")
+        f.write("echo \"Total array size: $SLURM_ARRAY_TASK_COUNT\"\n")
+        if is_chunked:
+            f.write("echo \"Chunked execution: each task processes multiple files\"\n")
+        f.write("\n")
         
         f.write("# Specify the path to the task file\n")
         f.write(f"task_file=\"{task_file}\"\n\n")
@@ -100,9 +119,12 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
         f.write("fi\n\n")
         
         f.write("echo \"Executing command: $gcmd\"\n")
-        f.write("echo \"Processing file: $SLURM_ARRAY_TASK_ID of $SLURM_ARRAY_TASK_COUNT\"\n\n")
+        f.write("echo \"Processing file: $SLURM_ARRAY_TASK_ID of $SLURM_ARRAY_TASK_COUNT\"\n")
+        if is_chunked:
+            f.write("echo \"This task will process multiple gzip operations\"\n")
+        f.write("\n")
         
-        f.write("# Execute the gzip command\n")
+        f.write("# Execute the gzip command(s)\n")
         f.write("eval $gcmd\n\n")
         
         f.write("echo \"Task $SLURM_ARRAY_TASK_ID completed successfully\"\n")
@@ -112,6 +134,8 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
     
     print_status(f"Slurm script created and made executable", "[OK]")
     print_status(f"Job array size (from task file): {array_size} tasks", "[INFO]")
+    if is_chunked:
+        print_status("Chunked execution enabled - each job processes multiple files", "[INFO]")
     print_status(f"Using defaults: partition={slurm_args['partition']}, time={slurm_args['time']}, mem-per-cpu={slurm_args['mem_per_cpu']}", "[INFO]")
     
     return script_path
