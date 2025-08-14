@@ -50,7 +50,7 @@ def print_colored_banner():
     →  Designed by Rauf Salamzade
     →  Relman Lab, 2025, Stanford University
     →  https://github.com/raufs/gzip-up
-    →  BSD-3-Clause License
+    →  License: GNU GPL v3.0
     """
     print(banner)
 
@@ -167,6 +167,12 @@ def create_colored_parser():
         '--auto-run', 
         action='store_true',
         help='• Automatically submit to Slurm (requires --slurm)'
+    )
+    slurm_group.add_argument(
+        '--max-jobs',
+        type=int,
+        help='• Maximum number of jobs/lines in task file (enables chunking when exceeded)',
+        metavar='N'
     )
     
     # Local execution options
@@ -287,14 +293,27 @@ def main():
         print_status("This prevents accidentally overwriting previous work", "[ERROR]")
         sys.exit(1)
     
-    # Determine if we should use chunking (only for --auto-run with >1000 files)
-    use_chunking = args.auto_run and len(files) > 1000
+    # Determine if we should use chunking
+    # Chunking occurs when:
+    # 1. --auto-run is specified AND >1000 files, OR
+    # 2. --max-jobs is specified AND >max_jobs files
+    use_chunking = False
+    max_jobs_for_chunking = 1000  # Default for auto-run
     
-    if use_chunking:
+    if args.auto_run and len(files) > 1000:
+        use_chunking = True
+        max_jobs_for_chunking = 1000
         print_status("Using chunked approach for --auto-run with large file count", "[INFO]")
-        result = generate_task_file(files, args.output, True)  # auto_run=True
+    elif args.max_jobs and len(files) > args.max_jobs:
+        use_chunking = True
+        max_jobs_for_chunking = args.max_jobs
+        print_status(f"Using chunked approach to respect --max-jobs limit of {args.max_jobs}", "[INFO]")
     else:
         print_status("Using standard approach (no chunking)", "[INFO]")
+    
+    if use_chunking:
+        result = generate_task_file(files, args.output, True, max_jobs_for_chunking)  # auto_run=True, max_jobs specified
+    else:
         result = generate_task_file(files, args.output, False)  # auto_run=False
     
     # Handle return value (could be just path or tuple with temp_dir)

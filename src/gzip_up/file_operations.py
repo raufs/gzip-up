@@ -177,15 +177,16 @@ def generate_chunked_task_file(files: List[str], output_file: str = "gzip.cmds",
     return task_file_path, actual_jobs, commands_per_job
 
 
-def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_run: bool = False) -> str:
+def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_run: bool = False, max_jobs: int = 1000) -> str:
     """
     Generate a task file with gzip commands for the found files.
-    Always creates the full task file, and optionally creates chunked versions for auto-run.
+    Always creates the full task file, and optionally creates chunked versions for auto-run or max-jobs limits.
     
     Args:
         files: List of file paths to compress
         output_file: Name of the output task file
         auto_run: Whether this is for auto-execution (affects chunking behavior)
+        max_jobs: Maximum number of jobs to allow in chunked mode
         
     Returns:
         Path to the generated task file (main file, not chunked)
@@ -248,51 +249,9 @@ def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_ru
     
     print_status(f"Task file created with {commands_written} gzip commands", "[OK]")
     
-    # If auto_run is requested and there are more than 1000 files, create chunked versions
-    if auto_run and len(files) > 1000:
-        print_status("More than 1000 files detected with --auto-run, creating chunked versions for SLURM compatibility", "[INFO]")
-        
-        # Calculate optimal chunking to stay under 1000 jobs
-        total_files = len(files)
-        max_jobs = 1000
-        
-        print_status(f"Calculating optimal chunking for {total_files} files with {max_jobs} job limit", "[DEBUG]")
-        
-        # Calculate minimum commands per job needed to stay under 1000 jobs
-        # We need: total_files / commands_per_job <= max_jobs
-        # So: commands_per_job >= total_files / max_jobs
-        commands_per_job = max(1, (total_files + max_jobs - 1) // max_jobs)
-        print_status(f"Initial calculation: {commands_per_job} commands per job", "[DEBUG]")
-        
-        # Double-check: ensure we don't exceed max_jobs
-        actual_jobs = (total_files + commands_per_job - 1) // commands_per_job
-        print_status(f"Initial job count: {actual_jobs}", "[DEBUG]")
-        
-        # If we still exceed max_jobs, increase commands_per_job
-        iterations = 0
-        while actual_jobs > max_jobs and iterations < 100:  # Safety limit
-            commands_per_job += 1
-            actual_jobs = (total_files + commands_per_job - 1) // commands_per_job
-            iterations += 1
-            print_status(f"Iteration {iterations}: {commands_per_job} commands per job -> {actual_jobs} jobs", "[DEBUG]")
-        
-        if iterations >= 100:
-            print_status("WARNING: Exceeded maximum iterations in chunking calculation", "[WARN]")
-        
-        # Final verification
-        actual_jobs = min(max_jobs, (total_files + commands_per_job - 1) // commands_per_job)
-        
-        print_status(f"SLURM array limit: {max_jobs} max jobs", "[INFO]")
-        print_status(f"Files to compress: {total_files}", "[INFO]")
-        print_status(f"Jobs to submit: {actual_jobs}", "[INFO]")
-        print_status(f"Commands per job: {commands_per_job}", "[INFO]")
-        print_status(f"Estimated time per job: {30 + (commands_per_job - 1) * 5} minutes", "[INFO]")
-        
-        # Verify we're under the limit
-        if actual_jobs > max_jobs:
-            print_status(f"ERROR: Job count {actual_jobs} exceeds limit {max_jobs}", "[ERROR]")
-            print_status("This should never happen - please report this bug", "[ERROR]")
-            return task_file_path, None
+    # If chunking is requested and there are more than max_jobs files, create chunked versions
+    if auto_run and len(files) > max_jobs:
+        print_status(f"More than {max_jobs} files detected, creating chunked versions for SLURM compatibility", "[INFO]")
         
         # Create temporary directory in current working directory
         temp_dir = os.path.join(os.getcwd(), f"gzip_up_chunks_{int(time.time())}")
