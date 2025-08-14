@@ -22,8 +22,10 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 - **Task File Generation**: Create command files ready for parallel execution
 - **Slurm Integration**: Generate Slurm batch scripts with customizable parameters
 - **Auto-submission**: Option to automatically submit jobs to Slurm (with confirmation)
+- **Smart Chunking**: Automatically chunk large file sets to respect SLURM job array limits (only if `--slurm --auto-run` issued!)
 - **Flexible Configuration**: Customize output files, Slurm parameters, and execution options
-- **Chunking Control**: Manual chunking with `--max-jobs` and optional auto-chunking with `--no-chunk`
+- **Rich Help System**: Beautiful colored command-line interface with rich-argparse
+- **Chunking Control**: Manual chunking with `--max-jobs` and optional auto-chunking with `--auto-run`
 
 ## Requirements
 
@@ -90,6 +92,14 @@ gzip-up -s .txt .log --slurm
 
 **Important**: The `--slurm` flag alone will create SLURM scripts for any number of files, potentially creating very large job arrays (e.g., 20,000 jobs for 20,000 files). Some SLURM clusters may have job array size limits.
 
+**What `--auto-run` Actually Does**: The `--auto-run` flag is about automatically submitting jobs to Slurm, not about automatic chunking. It will:
+- Generate the task file and Slurm script
+- Prompt for confirmation
+- Automatically submit the job to Slurm
+- Wait for completion and provide status updates
+
+The chunking behavior is controlled separately by other options.
+
 **Manual Chunking**: You can control job array size using the `--max-jobs` option:
 ```bash
 gzip-up -s .txt .log --slurm --max-jobs 500
@@ -107,6 +117,11 @@ gzip-up -s .txt .log --slurm --auto-run --no-chunk
 # Auto-run with custom chunking limit
 gzip-up -s .txt .log --slurm --auto-run --max-jobs 500
 ```
+
+**Note**: `--auto-run` is primarily about automatically submitting jobs to Slurm. The chunking behavior depends on your additional options:
+- **Default**: `--auto-run` will automatically chunk if >1000 files (for safety)
+- **Disable**: `--auto-run --no-chunk` will create large job arrays without chunking
+- **Custom**: `--auto-run --max-jobs N` will use your specified chunking limit
 
 Customize Slurm parameters:
 ```bash
@@ -138,22 +153,23 @@ gzip-up -s .txt .log --slurm --max-jobs 500
 # - No automatic cleanup
 ```
 
-#### **Auto-Chunking (`--auto-run` without `--no-chunk`)**
+#### **Auto-Run with Chunking (`--auto-run` without `--no-chunk`)**
 ```bash
-# Automatic chunking for >1000 files
+# Auto-run with automatic chunking for >1000 files
 gzip-up -s .txt .log --slurm --auto-run
 
 # This automatically:
-# - Chunks files when count > 1000
+# - Submits jobs to Slurm (with confirmation)
+# - Chunks files when count > 1000 (for safety)
 # - Limits job array to ≤1000 tasks
 # - Optimizes timing per chunk
 # - Creates chunked files directly in the main output location
 # - No temporary directories or cleanup needed
 ```
 
-#### **No Chunking (`--auto-run --no-chunk`)**
+#### **Auto-Run without Chunking (`--auto-run --no-chunk`)**
 ```bash
-# Disable automatic chunking
+# Auto-run without chunking (creates large job arrays)
 gzip-up -s .txt .log --slurm --auto-run --no-chunk
 
 # This creates:
@@ -161,6 +177,7 @@ gzip-up -s .txt .log --slurm --auto-run --no-chunk
 # - No chunking or temporary files
 # - May exceed SLURM job array limits on some clusters
 # - Standard SLURM execution
+# - Still auto-submits to Slurm (with confirmation)
 ```
 
 ### Command Line Options
