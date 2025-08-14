@@ -1,3 +1,3 @@
 """
-Unit tests for slurm_gzip package.
+Unit tests for gzip_up package.
 """

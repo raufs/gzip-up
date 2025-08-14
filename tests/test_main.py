@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from io import StringIO
 
-from slurm_gzip.main import main, validate_suffixes, create_colored_parser
+from gzip_up.main import main, validate_suffixes, create_colored_parser
 
 
 class TestSuffixValidation:
@@ -89,19 +89,19 @@ class TestColoredParser:
 class TestMainCLI:
     """Test the main CLI functionality."""
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_header')
-    @patch('slurm_gzip.main.print_section')
-    @patch('slurm_gzip.main.print_status')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_header')
+    @patch('gzip_up.main.print_section')
+    @patch('gzip_up.main.print_status')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_basic_usage(self, mock_banner, mock_logo, mock_status, mock_section, 
                              mock_header, mock_summary, mock_gen_task, mock_find_files):
         """Test basic CLI usage with file suffix."""
         # Mock command line arguments
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt']):
             # Mock return values
             mock_find_files.return_value = ['/path/to/file.txt']
             mock_gen_task.return_value = '/path/to/gzip.cmds'
@@ -118,18 +118,18 @@ class TestMainCLI:
         mock_gen_task.assert_called_once_with(['/path/to/file.txt'], 'gzip.cmds')
         mock_summary.assert_called_once_with(['/path/to/file.txt'])
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_custom_directory_and_suffixes(self, mock_banner, mock_logo, 
                                               mock_summary, mock_gen_task, mock_find_files):
         """Test CLI with custom directory and multiple suffixes."""
         mock_find_files.return_value = ['/test/dir/file1.txt', '/test/dir/file2.log']
         mock_gen_task.return_value = '/test/dir/gzip.cmds'
         
-        with patch('sys.argv', ['slurm_gzip', '-d', '/test/dir', '-s', '.txt', '.log']):
+        with patch('sys.argv', ['gzip_up', '-d', '/test/dir', '-s', '.txt', '.log']):
             with patch('os.path.isdir', return_value=True):
                 main()
         
@@ -139,29 +139,29 @@ class TestMainCLI:
             'gzip.cmds'
         )
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_custom_output_file(self, mock_banner, mock_logo, 
                                    mock_summary, mock_gen_task, mock_find_files):
         """Test CLI with custom output file."""
         mock_find_files.return_value = ['/path/to/file.txt']
         mock_gen_task.return_value = '/path/to/custom.cmds'
         
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt', '-o', 'custom.cmds']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt', '-o', 'custom.cmds']):
             with patch('os.path.isdir', return_value=True):
                 main()
         
         mock_gen_task.assert_called_once_with(['/path/to/file.txt'], 'custom.cmds')
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.generate_slurm_script')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.generate_slurm_script')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_with_slurm(self, mock_banner, mock_logo, mock_summary, 
                             mock_gen_slurm, mock_gen_task, mock_find_files):
         """Test CLI with Slurm script generation."""
@@ -169,7 +169,7 @@ class TestMainCLI:
         mock_gen_task.return_value = '/path/to/gzip.cmds'
         mock_gen_slurm.return_value = '/path/to/gzip_slurm.sh'
         
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt', '--slurm']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt', '--slurm']):
             with patch('os.path.isdir', return_value=True):
                 main()
         
@@ -178,12 +178,12 @@ class TestMainCLI:
         call_args = mock_gen_slurm.call_args[0][1]
         assert call_args == {}
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.generate_slurm_script')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.generate_slurm_script')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_with_slurm_parameters(self, mock_banner, mock_logo, mock_summary, 
                                        mock_gen_slurm, mock_gen_task, mock_find_files):
         """Test CLI with Slurm parameters."""
@@ -191,7 +191,7 @@ class TestMainCLI:
         mock_gen_task.return_value = '/path/to/gzip.cmds'
         mock_gen_slurm.return_value = '/path/to/gzip_slurm.sh'
         
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt', '--slurm', '--partition', 'short', '--ntasks', '4']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt', '--slurm', '--partition', 'short', '--ntasks', '4']):
             with patch('os.path.isdir', return_value=True):
                 main()
         
@@ -200,13 +200,13 @@ class TestMainCLI:
         assert call_args['partition'] == 'short'
         assert call_args['ntasks'] == '4'
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.generate_slurm_script')
-    @patch('slurm_gzip.main.run_on_slurm')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.generate_slurm_script')
+    @patch('gzip_up.main.run_on_slurm')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     @patch('builtins.input', return_value='yes')
     def test_main_auto_run_slurm(self, mock_input, mock_banner, mock_logo, 
                                 mock_summary, mock_run_slurm, mock_gen_slurm, 
@@ -217,19 +217,19 @@ class TestMainCLI:
         mock_gen_slurm.return_value = '/path/to/gzip_slurm.sh'
         mock_run_slurm.return_value = True
         
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt', '--slurm', '--auto-run']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt', '--slurm', '--auto-run']):
             with patch('os.path.isdir', return_value=True):
                 main()
         
         mock_run_slurm.assert_called_once_with('/path/to/gzip_slurm.sh')
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.generate_slurm_script')
-    @patch('slurm_gzip.main.run_on_slurm')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.generate_slurm_script')
+    @patch('gzip_up.main.run_on_slurm')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     @patch('builtins.input', return_value='no')
     def test_main_auto_run_cancelled(self, mock_input, mock_banner, mock_logo, 
                                     mock_summary, mock_run_slurm, mock_gen_slurm, 
@@ -239,57 +239,57 @@ class TestMainCLI:
         mock_gen_task.return_value = '/path/to/gzip.cmds'
         mock_gen_slurm.return_value = '/path/to/gzip_slurm.sh'
         
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt', '--slurm', '--auto-run']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt', '--slurm', '--auto-run']):
             with patch('os.path.isdir', return_value=True):
                 main()
         
         # Should not call run_on_slurm when cancelled
         mock_run_slurm.assert_not_called()
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_no_files_found(self, mock_banner, mock_logo, mock_find_files):
         """Test CLI when no files are found."""
         mock_find_files.return_value = []
         
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt']):
             with patch('os.path.isdir', return_value=True):
                 with patch('sys.exit') as mock_exit:
                     main()
                     mock_exit.assert_called_once_with(0)
     
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_invalid_directory(self, mock_banner, mock_logo):
         """Test CLI with invalid directory."""
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt']):
             with patch('os.path.isdir', return_value=False):
                 with patch('sys.exit') as mock_exit:
                     main()
                     mock_exit.assert_called_once_with(1)
     
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_auto_run_without_slurm(self, mock_banner, mock_logo):
         """Test CLI with auto-run but without slurm flag."""
-        with patch('sys.argv', ['slurm_gzip', '--auto-run']):
+        with patch('sys.argv', ['gzip_up', '--auto-run']):
             with patch('sys.exit') as mock_exit:
                 main()
                 mock_exit.assert_called_once_with(2)  # ArgumentParser error exit code
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_suffix_normalization(self, mock_banner, mock_logo, 
                                      mock_summary, mock_gen_task, mock_find_files):
         """Test that suffixes are properly normalized."""
         mock_find_files.return_value = ['/path/to/file.txt']
         mock_gen_task.return_value = '/path/to/gzip.cmds'
         
-        with patch('sys.argv', ['slurm_gzip', '-s', '.txt']):
+        with patch('sys.argv', ['gzip_up', '-s', '.txt']):
             with patch('os.path.isdir', return_value=True):
                 main()
         
@@ -297,18 +297,18 @@ class TestMainCLI:
         call_args = mock_find_files.call_args[0][1]
         assert call_args == {'.txt'}
     
-    @patch('slurm_gzip.main.find_files_with_suffixes')
-    @patch('slurm_gzip.main.generate_task_file')
-    @patch('slurm_gzip.main.display_file_summary')
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.find_files_with_suffixes')
+    @patch('gzip_up.main.generate_task_file')
+    @patch('gzip_up.main.display_file_summary')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_suffix_without_dot(self, mock_banner, mock_logo, 
                                    mock_summary, mock_gen_task, mock_find_files):
         """Test CLI with suffixes that don't start with dot."""
         mock_find_files.return_value = ['/path/to/file.txt', '/path/to/file.log']
         mock_gen_task.return_value = '/path/to/gzip.cmds'
         
-        with patch('sys.argv', ['slurm_gzip', '-s', 'txt', 'log']):
+        with patch('sys.argv', ['gzip_up', '-s', 'txt', 'log']):
             with patch('os.path.isdir', return_value=True):
                 main()
         
@@ -316,24 +316,24 @@ class TestMainCLI:
         call_args = mock_find_files.call_args[0][1]
         assert call_args == {'.txt', '.log'}
     
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_reject_gz_suffix(self, mock_banner, mock_logo):
         """Test that .gz suffixes are rejected."""
-        with patch('sys.argv', ['slurm_gzip', '-s', '.gz']):
+        with patch('sys.argv', ['gzip_up', '-s', '.gz']):
             with patch('os.path.isdir', return_value=True):
                 with patch('sys.exit') as mock_exit:
                     main()
                     mock_exit.assert_called_once_with(1)
     
-    @patch('slurm_gzip.main.print_logo')
-    @patch('slurm_gzip.main.print_colored_banner')
+    @patch('gzip_up.main.print_logo')
+    @patch('gzip_up.main.print_colored_banner')
     def test_main_reject_compressed_formats(self, mock_banner, mock_logo):
         """Test that other compression formats are rejected."""
         compressed_formats = ['.bz2', '.xz', '.zip', '.tar', '.7z', '.rar']
         
         for fmt in compressed_formats:
-            with patch('sys.argv', ['slurm_gzip', '-s', fmt]):
+            with patch('sys.argv', ['gzip_up', '-s', fmt]):
                 with patch('os.path.isdir', return_value=True):
                     with patch('sys.exit') as mock_exit:
                         main()
@@ -352,14 +352,14 @@ class TestMainIntegration:
         test_file2.write_text("content2")
         
         # Mock command line arguments
-        with patch('sys.argv', ['slurm_gzip', '-d', str(tmp_path), '-s', '.txt', '.log']):
-            with patch('slurm_gzip.main.display_file_summary') as mock_summary:
-                with patch('slurm_gzip.main.generate_task_file') as mock_gen_task:
-                    with patch('slurm_gzip.main.print_header'):
-                        with patch('slurm_gzip.main.print_section'):
-                            with patch('slurm_gzip.main.print_status'):
-                                with patch('slurm_gzip.main.print_logo'):
-                                    with patch('slurm_gzip.main.print_colored_banner'):
+        with patch('sys.argv', ['gzip_up', '-d', str(tmp_path), '-s', '.txt', '.log']):
+            with patch('gzip_up.main.display_file_summary') as mock_summary:
+                with patch('gzip_up.main.generate_task_file') as mock_gen_task:
+                    with patch('gzip_up.main.print_header'):
+                        with patch('gzip_up.main.print_section'):
+                            with patch('gzip_up.main.print_status'):
+                                with patch('gzip_up.main.print_logo'):
+                                    with patch('gzip_up.main.print_colored_banner'):
                                         main()
         
         # Verify that the workflow executed

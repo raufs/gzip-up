@@ -4,6 +4,12 @@ A Python program that scans directories for files with specific suffixes and gen
 
 It can also generate and optionally auto-submit Slurm batch scripts or auto-run locally using threading.
 
+> [!Warning]
+> THIS PROJECT IS STILL IN DEVELPMENT AND JUST AI GENERATED WITHOUT VETTING AT THIS POINT. DON'T USE.
+
+> [!IMPORTANT]
+> I AM A BIOINFORMATICIAN - IF POPULAR INTEREST - WE CAN ADD SAMTOOLS AS DEPENDENCY FOR SAM FILE TO BAM FILE COMPRESSION.
+
 ## Features
 
 - **File Discovery**: Recursively scan directories for files with specified suffixes
@@ -23,7 +29,7 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 1. Clone or download the repository
 2. Make the script executable:
    ```bash
-   chmod +x slurm_gzip.py
+   chmod +x gzip_up.py
    ```
 
 ## Usage
@@ -32,29 +38,29 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 
 Scan current directory for `.txt` and `.log` files:
 ```bash
-python slurm_gzip.py -s .txt .log
+python gzip_up.py -s .txt .log
 ```
 
 Scan specific directory:
 ```bash
-python slurm_gzip.py -d /path/to/files -s .txt .log
+python gzip_up.py -d /path/to/files -s .txt .log
 ```
 
 Custom output file:
 ```bash
-python slurm_gzip.py -s .txt .log -o my_tasks.cmds
+python gzip_up.py -s .txt .log -o my_tasks.cmds
 ```
 
 ### Slurm Integration
 
 Generate Slurm batch script:
 ```bash
-python slurm_gzip.py -s .txt .log --slurm
+python gzip_up.py -s .txt .log --slurm
 ```
 
 Customize Slurm parameters:
 ```bash
-python slurm_gzip.py -s .txt .log --slurm \
+python gzip_up.py -s .txt .log --slurm \
   --partition=short \
   --ntasks=4 \
   --mem=8G \
@@ -63,7 +69,7 @@ python slurm_gzip.py -s .txt .log --slurm \
 
 Auto-submit to Slurm (with confirmation):
 ```bash
-python slurm_gzip.py -s .txt .log --slurm --auto-run
+python gzip_up.py -s .txt .log --slurm --auto-run
 ```
 
 ### Command Line Options
@@ -109,7 +115,7 @@ Bash script with Slurm directives and execution logic.
 ### Local Execution
 ```bash
 # Using built-in threading (recommended)
-python -m slurm_gzip -s .txt .log --local-run --threads 4
+python -m gzip_up -s .txt .log --local-run --threads 4
 
 # Using GNU parallel
 parallel < gzip.cmds
@@ -135,13 +141,13 @@ srun --multi-prog gzip.cmds
 ### Example 1: Basic File Compression
 ```bash
 # Find and compress all .txt files in current directory
-python -m slurm_gzip -s .txt
+python -m gzip_up -s .txt
 
 # Review generated task file
 cat gzip.cmds
 
 # Execute locally with threading
-python -m slurm_gzip -s .txt --local-run --threads 4
+python -m gzip_up -s .txt --local-run --threads 4
 
 # Or execute with parallel
 parallel < gzip.cmds
@@ -150,7 +156,7 @@ parallel < gzip.cmds
 ### Example 2: Slurm Batch Job
 ```bash
 # Generate Slurm script for large dataset
-python -m slurm_gzip -d /data/large_files -s .csv .tsv --slurm \
+python -m gzip_up -d /data/large_files -s .csv .tsv --slurm \
   --partition=long \
   --ntasks=16 \
   --mem=32G \
@@ -163,7 +169,7 @@ sbatch gzip_slurm.sh
 ### Example 3: Auto-submission with Confirmation
 ```bash
 # Generate and auto-submit (will prompt for confirmation)
-python -m slurm_gzip -d /data/files -s .log --slurm --auto-run
+python -m gzip_up -d /data/files -s .log --slurm --auto-run
 ```
 
 ## Safety Features

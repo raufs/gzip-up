@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test runner script for slurm_gzip package.
+Test runner script for gzip_up package.
 """
 
 import sys
@@ -11,13 +11,13 @@ from pathlib import Path
 
 def run_tests():
     """Run the test suite."""
-    print("[*] Running slurm_gzip test suite...")
+    print("[*] Running gzip_up test suite...")
     print("=" * 50)
     
     # Check if we're in the right directory
-    if not Path("src/slurm_gzip").exists():
+    if not Path("src/gzip_up").exists():
         print("[ERROR] Error: Please run this script from the project root directory")
-        print("   (where src/slurm_gzip/ exists)")
+        print("   (where src/gzip_up/ exists)")
         sys.exit(1)
     
     # Check if pytest is available
@@ -33,7 +33,7 @@ def run_tests():
         sys.executable, "-m", "pytest",
         "tests/",
         "-v",
-        "--cov=src/slurm_gzip",
+        "--cov=src/gzip_up",
         "--cov-report=term-missing",
         "--cov-report=html:htmlcov",
         "--tb=short"

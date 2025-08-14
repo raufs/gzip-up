@@ -7,7 +7,7 @@ from unittest.mock import patch
 from io import StringIO
 import sys
 
-from slurm_gzip.utils import (
+from gzip_up.utils import (
     print_header,
     print_section,
     print_status,

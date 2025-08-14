@@ -8,7 +8,7 @@ import stat
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 
-from slurm_gzip.slurm_operations import generate_slurm_script, run_on_slurm
+from gzip_up.slurm_operations import generate_slurm_script, run_on_slurm
 
 
 class TestGenerateSlurmScript:

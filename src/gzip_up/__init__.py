@@ -1,5 +1,5 @@
 """
-Slurm Gzip Task Generator
+Gzip-up Task Generator
 
 A Python program that scans directories for files with specific suffixes and generates
 task files for gzip compression operations. It can also auto-run on Slurm using srun.

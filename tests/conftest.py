@@ -1,5 +1,5 @@
 """
-Shared test fixtures and configuration for slurm_gzip tests.
+Shared test fixtures and configuration for gzip_up tests.
 """
 
 import pytest

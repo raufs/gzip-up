@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "slurm-gzip"
+name = "gzip-up"
 version = "1.0.0"
 description = "A Python program that scans directories for files with specific suffixes and generates task files for gzip compression operations with Slurm integration"
 readme = "README.md"
@@ -37,14 +37,14 @@ requires-python = ">=3.8"
 dependencies = []
 
 [project.scripts]
-slurm-gzip = "slurm_gzip.main:main"
+gzip-up = "gzip_up.main:main"
 
 [project.urls]
-Homepage = "https://github.com/raufs/slurm_gzip"
-Repository = "https://github.com/raufs/slurm_gzip.git"
-Documentation = "https://github.com/raufs/slurm_gzip#readme"
-Issues = "https://github.com/raufs/slurm_gzip/issues"
-Changelog = "https://github.com/raufs/slurm_gzip/releases"
+Homepage = "https://github.com/raufs/gzip-up"
+Repository = "https://github.com/raufs/gzip-up.git"
+Documentation = "https://github.com/raufs/gzip-up#readme"
+Issues = "https://github.com/raufs/gzip-up/issues"
+Changelog = "https://github.com/raufs/gzip-up/releases"
 
 [project.optional-dependencies]
 dev = [
