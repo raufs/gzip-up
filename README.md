@@ -73,6 +73,18 @@ python -m gzip_up -s .txt .log --slurm --max-jobs 500
 ```
 This will create chunked task files with a maximum of 500 jobs, regardless of file count.
 
+**Auto-run Options**: When using `--auto-run`, you can control chunking behavior:
+```bash
+# Auto-run with automatic chunking (default for >1000 files)
+python -m gzip_up -s .txt .log --slurm --auto-run
+
+# Auto-run without chunking (creates large job arrays)
+python -m gzip_up -s .txt .log --slurm --auto-run --no-chunk
+
+# Auto-run with custom chunking limit
+python -m gzip_up -s .txt .log --slurm --auto-run --max-jobs 500
+```
+
 Customize Slurm parameters:
 ```bash
 python -m gzip_up -s .txt .log --slurm \
@@ -102,6 +114,7 @@ python -m gzip_up -s .txt .log --slurm --auto-run
 --slurm                 Generate Slurm batch script
 --auto-run             Automatically submit to Slurm (requires --slurm)
 --max-jobs N            Maximum number of jobs in task file (enables chunking when exceeded)
+--no-chunk            Disable automatic chunking for --auto-run
 
 Slurm Parameters:
 --partition PART        Slurm partition
@@ -202,8 +215,26 @@ python -m gzip_up -d /data/large_files -s .csv --slurm --max-jobs 500
 
 ### Example 3: Auto-submission with Smart Chunking (Large File Set)
 ```bash
-# Generate and auto-submit (will prompt for confirmation)
-python -m gzip_up -d /data/files -s .log --slurm --auto-run
+# Generate and auto-submit with automatic chunking (>1000 files)
+python -m gzip_up -d /data/large_files -s .log --slurm --auto-run
+
+# This will automatically:
+# - Create chunked task files if >1000 files
+# - Limit job array to ≤1000 tasks
+# - Optimize timing per chunk
+# - Clean up temporary files after completion
+```
+
+### Example 3b: Auto-submission without Chunking
+```bash
+# Generate and auto-submit without chunking (creates large job arrays)
+python -m gzip_up -d /data/large_files -s .log --slurm --auto-run --no-chunk
+
+# This will:
+# - Submit large job arrays (e.g., 20,000 jobs for 20,000 files)
+# - No chunking or temporary files
+# - May exceed SLURM job array limits on some clusters
+# - Use standard SLURM execution
 ```
 
 ## Safety Features

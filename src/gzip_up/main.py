@@ -6,21 +6,16 @@ This program scans directories for files with specific suffixes and generates
 a task file for gzip compression operations. It can also auto-run on Slurm using srun.
 """
 
-import argparse
 import os
 import sys
-import shutil
-from pathlib import Path
+import argparse
 from typing import List, Set
-
+from rich_argparse import RichHelpFormatter
 from .utils import (
-    print_header,
-    print_section,
-    print_status,
-    print_progress,
-    display_file_summary,
+    print_header, print_section, print_status, print_progress, 
+    display_file_summary
 )
-from .file_operations import find_files_with_suffixes, generate_task_file
+from .file_operations import generate_task_file, find_files_with_suffixes
 from .slurm_operations import generate_slurm_script, run_on_slurm
 from . import __version__
 
@@ -98,149 +93,136 @@ def validate_suffixes(suffixes: List[str]) -> Set[str]:
 def create_colored_parser():
     """Create a colorful and enhanced argument parser."""
     parser = argparse.ArgumentParser(
-        description="• Generate gzip task files and optionally run on Slurm or locally using threading",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Generate gzip task files and optionally run on Slurm or locally using threading",
+        formatter_class=RichHelpFormatter,
         epilog="""
-•  Examples:
-  # Basic usage - scan current directory for .txt and .log files
-  • python -m gzip_up -s .txt .log
-  
-  # Scan specific directory with custom output file
-  • python -m gzip_up -d /path/to/files -s .txt .log -o my_tasks.cmds
-  
-  # Run locally with 4 threads
-  • python -m gzip_up -d /path/to/files -s .txt .log --local-run --threads 4
-  
-  # Generate Slurm script with custom parameters
-  • python -m gzip_up -d /path/to/files -s .txt .log --slurm --partition=short --ntasks=4
-  
-  # Auto-run on Slurm (with confirmation)
-  • python -m gzip_up -d /path/to/files -s .txt .log --slurm --auto-run
-
-•  Tips:
-  • Use -s to specify file suffixes (e.g., .txt, .log, .csv)
-  • Use --local-run for immediate local execution with threading
-  • Use --threads 0 for auto-detection of optimal thread count
-  • Add --slurm to generate Slurm batch scripts
-  • Use --auto-run to submit jobs automatically (with confirmation)
-  • Check generated files before execution
+Examples:
+  python -m gzip_up -s .txt .log
+  python -m gzip_up -d /path/to/files -s .txt .log -o my_tasks.cmds
+  python -m gzip_up -s .txt .log --local-run --threads 4
+  python -m gzip_up -s .txt .log --slurm --auto-run
         """,
         add_help=True
     )
     
     # File discovery options
     file_group = parser.add_argument_group(
-        "• File Discovery Options",
+        "File Discovery Options",
         "Configure which files to find and compress"
     )
     file_group.add_argument(
         '-d', '--directory', 
         default='.',
-        help='• Directory to scan for files (default: current directory)',
+        help='Directory to scan for files (default: current directory)',
         metavar='DIR'
     )
     file_group.add_argument(
         '-s', '--suffixes', 
         nargs='+', 
         required=True,
-        help='• File suffixes to look for (e.g., .txt .log .csv)',
+        help='File suffixes to look for (e.g., .txt .log .csv)',
         metavar='SUFFIX'
     )
     file_group.add_argument(
         '-o', '--output', 
         default='gzip.cmds',
-        help='• Output task file name (default: gzip.cmds)',
+        help='Output task file name (default: gzip.cmds)',
         metavar='FILE'
     )
     
     # Slurm options
     slurm_group = parser.add_argument_group(
-        "• Slurm Integration Options",
+        "Slurm Integration Options",
         "Configure Slurm batch job parameters (uses job arrays for parallelization)"
     )
     slurm_group.add_argument(
         '--slurm', 
         action='store_true',
-        help='• Generate Slurm batch script'
+        help='Generate Slurm batch script'
     )
     slurm_group.add_argument(
         '--auto-run', 
         action='store_true',
-        help='• Automatically submit to Slurm (requires --slurm)'
+        help='Automatically submit to Slurm (requires --slurm)'
     )
     slurm_group.add_argument(
         '--max-jobs',
         type=int,
-        help='• Maximum number of jobs/lines in task file (enables chunking when exceeded)',
+        help='Maximum number of jobs/lines in task file (enables chunking when exceeded)',
         metavar='N'
+    )
+    slurm_group.add_argument(
+        '--no-chunk',
+        action='store_true',
+        help='Disable automatic chunking for --auto-run (only applies if --auto-run is also specified)'
     )
     
     # Local execution options
     local_group = parser.add_argument_group(
-        "• Local Execution Options",
+        "Local Execution Options",
         "Configure local threading for gzip operations"
     )
     local_group.add_argument(
-        '--threads',
-        type=int,
+        '--threads', 
+        type=int, 
         default=1,
-        help='• Number of threads for local execution (default: 1, use 0 for auto-detect)',
+        help='Number of threads for local execution (default: 1, use 0 for auto-detect)',
         metavar='N'
     )
     local_group.add_argument(
-        '--local-run',
+        '--local-run', 
         action='store_true',
-        help='• Run gzip operations locally using threading (instead of just generating task file)'
+        help='Run gzip operations locally using threading (instead of just generating task file)'
     )
     
     # Slurm-specific arguments
     slurm_params_group = parser.add_argument_group(
-        "• Slurm Parameters",
+        "Slurm Parameters",
         "Customize Slurm job configuration"
     )
     slurm_params_group.add_argument(
         '--partition', 
-        help='• Slurm partition (e.g., short, long, gpu)',
+        help='Slurm partition (e.g., short, long, gpu)',
         metavar='PART'
     )
     slurm_params_group.add_argument(
         '--nodes', 
-        help='• Number of nodes',
+        help='Number of nodes',
         metavar='N'
     )
     slurm_params_group.add_argument(
         '--ntasks', 
-        help='• Number of tasks',
+        help='Number of tasks',
         metavar='N'
     )
     slurm_params_group.add_argument(
         '--cpus-per-task', 
-        help='• CPUs per task',
+        help='CPUs per task',
         metavar='N'
     )
     slurm_params_group.add_argument(
         '--mem', 
-        help='• Memory per node (e.g., 8G, 16GB)',
+        help='Memory per node (e.g., 8G, 16GB)',
         metavar='MEM'
     )
     slurm_params_group.add_argument(
         '--mem-per-cpu', 
-        help='• Memory per CPU (e.g., 1G, 2GB) - overrides --mem if specified',
+        help='Memory per CPU (e.g., 1G, 2GB) - overrides --mem if specified',
         metavar='MEM'
     )
     slurm_params_group.add_argument(
         '--time', 
-        help='• Time limit (HH:MM:SS)',
+        help='Time limit (HH:MM:SS)',
         metavar='TIME'
     )
     slurm_params_group.add_argument(
         '--output-log', 
-        help='• Output log file',
+        help='Output log file',
         metavar='FILE'
     )
     slurm_params_group.add_argument(
         '--error-log', 
-        help='• Error log file',
+        help='Error log file',
         metavar='FILE'
     )
     
@@ -293,56 +275,49 @@ def main():
         print_status("This prevents accidentally overwriting previous work", "[ERROR]")
         sys.exit(1)
     
+    # Check if SLURM script already exists
+    if args.slurm and os.path.exists("gzip_slurm.sh"):
+        print_status("ERROR: SLURM script already exists: gzip_slurm.sh", "[ERROR]")
+        print_status("Please remove or rename the existing script to continue", "[ERROR]")
+        print_status("This prevents accidentally overwriting previous work", "[ERROR]")
+        sys.exit(1)
+    
     # Determine if we should use chunking
     # Chunking occurs when:
-    # 1. --auto-run is specified AND >1000 files, OR
-    # 2. --max-jobs is specified AND >max_jobs files
+    # 1. --max-jobs is specified AND >max_jobs files, OR
+    # 2. --auto-run is specified AND >1000 files (default auto-chunking, unless --no-chunk)
     use_chunking = False
-    max_jobs_for_chunking = 1000  # Default for auto-run
+    max_jobs_for_chunking = None
     
-    if args.auto_run and len(files) > 1000:
-        use_chunking = True
-        max_jobs_for_chunking = 1000
-        print_status("Using chunked approach for --auto-run with large file count", "[INFO]")
-    elif args.max_jobs and len(files) > args.max_jobs:
+    if args.max_jobs and len(files) > args.max_jobs:
         use_chunking = True
         max_jobs_for_chunking = args.max_jobs
         print_status(f"Using chunked approach to respect --max-jobs limit of {args.max_jobs}", "[INFO]")
+    elif args.auto_run and len(files) > 1000 and not args.no_chunk:
+        # Auto-run with default chunking (can be disabled with --no-chunk)
+        use_chunking = True
+        max_jobs_for_chunking = 1000
+        print_status("Using chunked approach for --auto-run with large file count", "[INFO]")
+    elif args.auto_run and len(files) > 1000 and args.no_chunk:
+        print_status("Auto-run with large file count but chunking disabled", "[INFO]")
     else:
         print_status("Using standard approach (no chunking)", "[INFO]")
     
-    if use_chunking:
-        result = generate_task_file(files, args.output, True, max_jobs_for_chunking)  # auto_run=True, max_jobs specified
-    else:
-        result = generate_task_file(files, args.output, False)  # auto_run=False
+    result = generate_task_file(files, args.output, args.auto_run, max_jobs_for_chunking)
     
-    # Handle return value (could be just path or tuple with temp_dir)
-    if isinstance(result, tuple):
-        task_file, temp_dir = result
-    else:
-        task_file = result
-        temp_dir = None
+    # Handle return value (now just the file path)
+    task_file_path = result
     
-    # Check if chunking was used
-    is_chunked = False
+    print_status(f"Task file generated: {task_file_path}", "[OK]")
+    
+    # Count commands in the task file
     try:
-        with open(task_file, 'r') as f:
-            for line in f:
-                if line.strip() and ';' in line.strip():
-                    is_chunked = True
-                    break
-        
-        # Check if this is a temporary directory
-        if temp_dir and os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
-            print_status(f"Using temporary chunked files in: {temp_dir}", "[INFO]")
-    except Exception:
-        pass
-    
-    if is_chunked:
-        print_status("Chunked execution detected - task file contains multiple commands per line", "[INFO]")
-        print_status("This approach is used when there are more than 1000 files to compress", "[INFO]")
-        print_status("Each SLURM array task will process multiple gzip operations", "[INFO]")
-        print_status("Temporary files will be cleaned up after job completion", "[INFO]")
+        with open(task_file_path, 'r') as f:
+            command_count = sum(1 for line in f if line.strip() and not line.strip().startswith('#'))
+        print_status(f"Task file contains {command_count} commands", "[INFO]")
+    except Exception as e:
+        print_status(f"Could not count commands in task file: {e}", "[WARN]")
+        command_count = "unknown"
     
     # Execute locally if requested
     if args.local_run:
@@ -359,35 +334,32 @@ def main():
     if args.slurm:
         print_section("• Slurm Script Generation")
         
-        # Check if SLURM script already exists
-        if os.path.exists("gzip_slurm.sh"):
-            print_status("ERROR: SLURM script already exists: gzip_slurm.sh", "[ERROR]")
-            print_status("Please remove or rename the existing script to continue", "[ERROR]")
-            print_status("This prevents accidentally overwriting previous work", "[ERROR]")
-            sys.exit(1)
+        # Use the main task file for SLURM
+        slurm_task_file = task_file_path
+        print_status(f"SLURM will use task file: {slurm_task_file}", "[INFO]")
         
-        # Use chunked file for SLURM if available, otherwise use main task file
-        slurm_task_file = task_file
-        if temp_dir and os.path.exists(os.path.join(temp_dir, os.path.basename(args.output))):
-            slurm_task_file = os.path.join(temp_dir, os.path.basename(args.output))
-            print_status(f"SLURM will use chunked task file: {slurm_task_file}", "[INFO]")
-            print_status("Job array will be limited to 1000 tasks (chunked execution)", "[INFO]")
+        # Check if this is a chunked file (contains semicolons)
+        is_chunked = False
+        try:
+            with open(task_file_path, 'r') as f:
+                for line in f:
+                    if line.strip() and ';' in line.strip():
+                        is_chunked = True
+                        break
+        except Exception:
+            pass
+        
+        if is_chunked:
+            print_status("Chunked execution detected - task file contains multiple commands per line", "[INFO]")
+            print_status("Each SLURM array task will process multiple gzip operations", "[INFO]")
         else:
-            print_status(f"SLURM will use main task file: {slurm_task_file}", "[INFO]")
-            if len(files) > 1000:
-                print_status(f"Large job array will be created: {len(files)} tasks", "[INFO]")
-                print_status("Note: Some SLURM clusters may have array size limits", "[WARN]")
-            else:
-                print_status(f"Job array size: {len(files)} tasks", "[INFO]")
+            print_status("Standard execution - each SLURM array task processes one file", "[INFO]")
         
-        # Check if chunked task file already exists in temp directory
-        if temp_dir and os.path.exists(os.path.join(temp_dir, os.path.basename(args.output))):
-            chunked_file = os.path.join(temp_dir, os.path.basename(args.output))
-            if os.path.exists(chunked_file):
-                print_status(f"ERROR: Chunked task file already exists: {chunked_file}", "[ERROR]")
-                print_status("Please remove the existing chunked files to continue", "[ERROR]")
-                print_status("This prevents accidentally overwriting previous work", "[ERROR]")
-                sys.exit(1)
+        if len(files) > 1000 and not is_chunked:
+            print_status(f"Large job array will be created: {len(files)} tasks", "[INFO]")
+            print_status("Note: Some SLURM clusters may have array size limits", "[WARN]")
+        else:
+            print_status(f"Job array size: {command_count} tasks", "[INFO]")
         
         slurm_args = {
             'partition': args.partition,
@@ -414,7 +386,7 @@ def main():
         if args.auto_run:
             print_section("• Slurm Job Submission")
             print_status("[WARN]  WARNING: About to submit job to Slurm!", "[WARN]")
-            print(f"• Task file: {task_file}")
+            print(f"• Task file: {task_file_path}")
             print(f"• Slurm script: {script_path}")
             print()
             print("Please review the generated files above to ensure everything looks correct.")
@@ -425,59 +397,29 @@ def main():
                 print()
                 if run_on_slurm(script_path):
                     print_status("[OK] Job submitted successfully!", "[OK]")
-                    
-                    # Clean up temporary chunked files if they exist
-                    if temp_dir and os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
-                        try:
-                            import shutil
-                            shutil.rmtree(temp_dir)
-                            print_status(f"Cleaned up temporary directory: {temp_dir}", "[OK]")
-                        except Exception as e:
-                            print_status(f"Warning: Could not clean up temporary directory {temp_dir}: {e}", "[WARN]")
-                            print_status("You may need to clean it up manually", "[WARN]")
                 else:
                     print_status("[ERROR] Failed to submit job.", "[ERROR]")
-                    
-                    # Clean up temporary chunked files even on failure
-                    if temp_dir and os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
-                        try:
-                            import shutil
-                            shutil.rmtree(temp_dir)
-                            print_status(f"Cleaned up temporary directory after failure: {temp_dir}", "[OK]")
-                        except Exception as e:
-                            print_status(f"Warning: Could not clean up temporary directory {temp_dir}: {e}", "[WARN]")
-                            print_status("You may need to clean it up manually", "[WARN]")
             else:
                 print_status("[STOP] Job submission cancelled.", "[STOP]")
-                
-                # Clean up temporary chunked files if user cancels
-                if temp_dir and os.path.exists(os.path.join(temp_dir, ".gzip_up_temp")):
-                    try:
-                        import shutil
-                        shutil.rmtree(temp_dir)
-                        print_status(f"Cleaned up temporary directory after cancellation: {temp_dir}", "[OK]")
-                    except Exception as e:
-                        print_status(f"Warning: Could not clean up temporary directory {temp_dir}: {e}", "[WARN]")
-                        print_status("You may need to clean it up manually", "[WARN]")
         else:
             print_section("• Ready for Manual Execution")
-            print_status(f"Task file: {task_file}", "•")
+            print_status(f"Task file: {task_file_path}", "•")
             print_status(f"Slurm script: {script_path}", "•")
             print()
             print("To run manually:")
             print(f"  Submit to Slurm: sbatch {script_path}")
-            print(f"  Run locally: parallel < {task_file}")
-            print(f"  Note: SLURM script uses job arrays - each task processes one file from {task_file}")
+            print(f"  Run locally: parallel < {task_file_path}")
+            print(f"  Note: SLURM script uses job arrays - each task processes one file from {task_file_path}")
             print(f"  Defaults: partition=short, time=02:00:00, mem-per-cpu=1G")
             print(f"  Output: Single stdout/stderr files for entire job array (gzip_%j.out/err)")
     else:
         print_section("• Ready for Execution")
-        print_status(f"Task file: {task_file}", "•")
+        print_status(f"Task file: {task_file_path}", "•")
         print()
         print("To run:")
         print(f"  Using threading: python -m gzip_up -s {' '.join(args.suffixes)} --local-run --threads 4")
-        print(f"  Using parallel: parallel < {task_file}")
-        print(f"  Using xargs: xargs -P $(nproc) -a {task_file}")
+        print(f"  Using parallel: parallel < {task_file_path}")
+        print(f"  Using xargs: xargs -P $(nproc) -a {task_file_path}")
         print(f"  Or run each command individually")
     
     print_header("• Task Complete!")

@@ -107,7 +107,7 @@ def generate_chunked_task_file(files: List[str], output_file: str = "gzip.cmds",
     if actual_jobs > max_jobs:
         print_status(f"ERROR: Job count {actual_jobs} exceeds limit {max_jobs}", "[ERROR]")
         print_status("This should never happen - please report this bug", "[ERROR]")
-        return task_file_path, 0, 0
+        return actual_jobs, 0
     
     skipped_messages = []
     skipped_already_compressed_count = 0
@@ -174,7 +174,7 @@ def generate_chunked_task_file(files: List[str], output_file: str = "gzip.cmds",
         print_status(f"WARNING: Expected {actual_jobs} jobs but wrote {commands_written} lines", "[WARN]")
         print_status("This may indicate a problem with the chunking logic", "[WARN]")
     
-    return task_file_path, actual_jobs, commands_per_job
+    return actual_jobs, commands_per_job
 
 
 def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_run: bool = False, max_jobs: int = 1000) -> str:
@@ -250,32 +250,22 @@ def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_ru
     print_status(f"Task file created with {commands_written} gzip commands", "[OK]")
     
     # If chunking is requested and there are more than max_jobs files, create chunked versions
-    if auto_run and len(files) > max_jobs:
-        print_status(f"More than {max_jobs} files detected, creating chunked versions for SLURM compatibility", "[INFO]")
+    if max_jobs and len(files) > max_jobs:
+        print_status(f"More than {max_jobs} files detected, creating chunked version for SLURM compatibility", "[INFO]")
         
-        # Create temporary directory in current working directory
-        temp_dir = os.path.join(os.getcwd(), f"gzip_up_chunks_{int(time.time())}")
-        os.makedirs(temp_dir, exist_ok=True)
-        
-        temp_output_file = os.path.join(temp_dir, os.path.basename(output_file))
-        
-        # Create chunked version
-        chunked_path, chunked_jobs, chunked_commands = generate_chunked_task_file(files, temp_output_file, max_jobs)
+        # Create chunked version directly in the main output file
+        chunked_jobs, chunked_commands = generate_chunked_task_file(files, task_file_path, max_jobs)
         
         # Verify the chunked generation returned valid values
         if chunked_jobs == 0 or chunked_commands == 0:
             print_status("ERROR: Chunked file generation failed", "[ERROR]")
-            print_status("Cleaning up temporary directory and falling back to main file", "[ERROR]")
-            try:
-                import shutil
-                shutil.rmtree(temp_dir)
-            except Exception as e:
-                print_status(f"Warning: Could not clean up temporary directory: {e}", "[WARN]")
-            return task_file_path, None
+            print_status("Falling back to standard task file", "[ERROR]")
+            # Re-generate the standard task file
+            return generate_task_file(files, output_file, auto_run=False, max_jobs=None)
         
         # Verify the generated file has the expected number of lines
         try:
-            with open(chunked_path, 'r') as f:
+            with open(task_file_path, 'r') as f:
                 actual_lines = sum(1 for line in f if line.strip() and not line.strip().startswith('#'))
             print_status(f"Generated chunked file has {actual_lines} job lines", "[DEBUG]")
             if actual_lines != chunked_jobs:
@@ -284,21 +274,10 @@ def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_ru
         except Exception as e:
             print_status(f"Could not verify chunked file line count: {e}", "[WARN]")
         
-        # Add a marker file to indicate this is a temp directory
-        with open(os.path.join(temp_dir, ".gzip_up_temp"), 'w') as f:
-            f.write(f"Original output: {output_file}\n")
-            f.write(f"Created: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Chunked for SLURM: {chunked_jobs} jobs, {chunked_commands} commands per job\n")
-            f.write(f"SLURM array limit: {max_jobs} max jobs\n")
-            f.write(f"Generated file lines: {actual_lines if 'actual_lines' in locals() else 'unknown'}\n")
-        
-        print_status(f"Chunked files created in temporary directory: {temp_dir}", "[INFO]")
-        print_status(f"Main task file remains: {task_file_path}", "[INFO]")
-        print_status(f"SLURM will use chunked version from: {chunked_path}", "[INFO]")
+        print_status(f"Task file updated with chunked commands: {chunked_jobs} jobs, {chunked_commands} commands per job", "[INFO]")
         print_status(f"Job array size will be: {chunked_jobs} (within {max_jobs} limit)", "[INFO]")
         
-        # Store temp directory info for cleanup later (return as tuple)
-        return task_file_path, temp_dir
+        return task_file_path
     
     # Return just the main file path if no chunking
     return task_file_path
