@@ -21,7 +21,7 @@ from .utils import (
 )
 from .file_operations import find_files_with_suffixes, generate_task_file
 from .slurm_operations import generate_slurm_script, run_on_slurm
-
+from . import __version__
 
 def print_logo():
     """Print a cool ASCII art logo."""
@@ -44,7 +44,7 @@ def print_colored_banner():
     
     current_year = datetime.datetime.now().year
     banner = f"""
-    →  gzip-up Task Generator v1.0.0
+    →  gzip-up Task Generator v{__version__}
     →  High-Performance File Compression Made Easy
     →  Designed by Rauf Salamzade
     →  Relman Lab, 2025, Stanford University
