@@ -62,7 +62,7 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
     
     with open(script_path, 'w') as f:
         f.write("#!/bin/bash\n")
-        f.write("#SBATCH --job-name=gzip_compression\n")
+        f.write("#SBATCH --job-name=gzip-up_compression\n")
         f.write(f"#SBATCH --partition={slurm_args['partition']}\n")
         f.write(f"#SBATCH --ntasks={slurm_args['ntasks']}\n")
         f.write(f"#SBATCH --cpus-per-task={slurm_args['cpus_per_task']}\n")
@@ -142,10 +142,10 @@ def run_on_slurm(script_path: str) -> bool:
             while srun_process.poll() is None:  # While process is still running
                 try:
                     # Check running jobs with squeue (filter by user and script name)
-                    squeue_result = subprocess.run(['squeue', '--user', os.getenv('USER', ''), '--name', 'gzip_compression'], 
+                    squeue_result = subprocess.run(['squeue', '--user', os.getenv('USER', ''), '--name', 'gzip-up_compression'], 
                                                  capture_output=True, text=True, check=True)
                     
-                    if 'gzip_compression' in squeue_result.stdout:
+                    if 'gzip-up_compression' in squeue_result.stdout or 'gzip-up_compression' in squeue_result.stderr:
                         # Job is still running
                         lines = squeue_result.stdout.strip().split('\n')
                         if len(lines) > 1:  # Skip header line
