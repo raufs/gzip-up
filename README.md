@@ -23,7 +23,7 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 
 ## Requirements
 
-- Python 3.6+
+- Python 3.8+
 - Access to a Slurm cluster (for Slurm functionality)
 - Standard Unix tools (gzip, parallel, etc.)
 
