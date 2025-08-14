@@ -4,6 +4,8 @@ Slurm operations for generating batch scripts and submitting jobs.
 
 import os
 import subprocess
+import time
+import threading
 from typing import List, Dict
 
 from .utils import print_status
@@ -117,7 +119,7 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
 
 def run_on_slurm(script_path: str) -> bool:
     """
-    Submit the Slurm script using sbatch.
+    Execute the Slurm script using srun and monitor progress until completion.
     
     Args:
         script_path: Path to the Slurm script
@@ -125,17 +127,70 @@ def run_on_slurm(script_path: str) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    print_status("Submitting job to Slurm...", "[*]")
+    print_status("Executing job with srun...", "[*]")
     
     try:
-        result = subprocess.run(['sbatch', script_path], 
-                              capture_output=True, text=True, check=True)
-        print_status(f"Job submitted successfully: {result.stdout.strip()}", "[OK]")
-        return True
-    except subprocess.CalledProcessError as e:
-        print_status(f"Error submitting job: {e}", "[ERROR]")
-        print(f"stderr: {e.stderr}")
-        return False
+        # Use srun to execute the job directly
+        srun_cmd = ['srun', 'bash', script_path]
+        
+        # Start srun process
+        srun_process = subprocess.Popen(srun_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        
+        # Monitor progress with squeue every 10 seconds
+        def monitor_progress():
+            """Monitor job progress using squeue every 10 seconds."""
+            while srun_process.poll() is None:  # While process is still running
+                try:
+                    # Check running jobs with squeue (filter by user and script name)
+                    squeue_result = subprocess.run(['squeue', '--user', os.getenv('USER', ''), '--name', 'gzip_compression'], 
+                                                 capture_output=True, text=True, check=True)
+                    
+                    if 'gzip_compression' in squeue_result.stdout:
+                        # Job is still running
+                        lines = squeue_result.stdout.strip().split('\n')
+                        if len(lines) > 1:  # Skip header line
+                            status_line = lines[1]
+                            parts = status_line.split()
+                            if len(parts) >= 5:
+                                status = parts[4]  # Job status column
+                                job_id = parts[0]  # Job ID column
+                                print_status(f"Job {job_id} status: {status}", "[INFO]")
+                    else:
+                        # Job completed or not found
+                        print_status("Job no longer in queue", "[INFO]")
+                        break
+                        
+                except subprocess.CalledProcessError:
+                    # squeue failed, job might be completed
+                    break
+                except Exception as e:
+                    print_status(f"Error monitoring job: {e}", "[WARN]")
+                
+                time.sleep(10)  # Wait 10 seconds before next check
+        
+        # Start monitoring in a separate thread
+        monitor_thread = threading.Thread(target=monitor_progress, daemon=True)
+        monitor_thread.start()
+        
+        # Wait for srun to complete
+        stdout, stderr = srun_process.communicate()
+        
+        if srun_process.returncode == 0:
+            print_status("Job completed successfully!", "[OK]")
+            if stdout.strip():
+                print_status("Job output:", "[INFO]")
+                print(stdout)
+            return True
+        else:
+            print_status(f"Job failed with return code: {srun_process.returncode}", "[ERROR]")
+            if stderr.strip():
+                print_status("Job error output:", "[ERROR]")
+                print(stderr)
+            return False
+            
     except FileNotFoundError:
-        print_status("sbatch command not found. Make sure you're on a Slurm cluster.", "[ERROR]")
+        print_status("srun command not found. Make sure you're on a Slurm cluster.", "[ERROR]")
+        return False
+    except Exception as e:
+        print_status(f"Unexpected error: {e}", "[ERROR]")
         return False
