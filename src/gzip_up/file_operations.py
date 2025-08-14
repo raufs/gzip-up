@@ -69,20 +69,45 @@ def generate_chunked_task_file(files: List[str], output_file: str = "gzip.cmds",
     """
     task_file_path = os.path.abspath(output_file)
     
-    # Calculate optimal chunking
+    # Calculate optimal chunking using the same robust logic
     total_files = len(files)
-    commands_per_job = max(1, total_files // max_jobs)
-    actual_jobs = (total_files + commands_per_job - 1) // max_jobs
     
-    # Ensure we don't exceed max_jobs
-    if actual_jobs > max_jobs:
-        commands_per_job = max(1, total_files // max_jobs)
-        actual_jobs = max_jobs
+    print_status(f"Chunked task file calculation for {total_files} files with {max_jobs} job limit", "[DEBUG]")
+    
+    # Calculate minimum commands per job needed to stay under max_jobs
+    # We need: total_files / commands_per_job <= max_jobs
+    # So: commands_per_job >= total_files / max_jobs
+    commands_per_job = max(1, (total_files + max_jobs - 1) // max_jobs)
+    print_status(f"Initial calculation: {commands_per_job} commands per job", "[DEBUG]")
+    
+    # Double-check: ensure we don't exceed max_jobs
+    actual_jobs = (total_files + commands_per_job - 1) // commands_per_job
+    print_status(f"Initial job count: {actual_jobs}", "[DEBUG]")
+    
+    # If we still exceed max_jobs, increase commands_per_job
+    iterations = 0
+    while actual_jobs > max_jobs and iterations < 100:  # Safety limit
+        commands_per_job += 1
+        actual_jobs = (total_files + commands_per_job - 1) // commands_per_job
+        iterations += 1
+        print_status(f"Iteration {iterations}: {commands_per_job} commands per job -> {actual_jobs} jobs", "[DEBUG]")
+    
+    if iterations >= 100:
+        print_status("WARNING: Exceeded maximum iterations in chunking calculation", "[WARN]")
+    
+    # Final verification
+    actual_jobs = min(max_jobs, (total_files + commands_per_job - 1) // commands_per_job)
     
     print_status(f"Restructuring for SLURM array limit: {max_jobs} max jobs", "[INFO]")
     print_status(f"Files to compress: {total_files}", "[INFO]")
     print_status(f"Jobs to submit: {actual_jobs}", "[INFO]")
     print_status(f"Commands per job: {commands_per_job}", "[INFO]")
+    
+    # Verify we're under the limit
+    if actual_jobs > max_jobs:
+        print_status(f"ERROR: Job count {actual_jobs} exceeds limit {max_jobs}", "[ERROR]")
+        print_status("This should never happen - please report this bug", "[ERROR]")
+        return task_file_path, 0, 0
     
     skipped_messages = []
     skipped_already_compressed_count = 0
@@ -143,6 +168,11 @@ def generate_chunked_task_file(files: List[str], output_file: str = "gzip.cmds",
         print_status(f"Skipped {skipped_existing_gz_count} files because a .gz counterpart exists", "[WARN]")
     
     print_status(f"Chunked task file created with {commands_written} job chunks", "[OK]")
+    
+    # Final verification that we wrote the expected number of lines
+    if commands_written != actual_jobs:
+        print_status(f"WARNING: Expected {actual_jobs} jobs but wrote {commands_written} lines", "[WARN]")
+        print_status("This may indicate a problem with the chunking logic", "[WARN]")
     
     return task_file_path, actual_jobs, commands_per_job
 
@@ -226,18 +256,28 @@ def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_ru
         total_files = len(files)
         max_jobs = 1000
         
+        print_status(f"Calculating optimal chunking for {total_files} files with {max_jobs} job limit", "[DEBUG]")
+        
         # Calculate minimum commands per job needed to stay under 1000 jobs
         # We need: total_files / commands_per_job <= max_jobs
         # So: commands_per_job >= total_files / max_jobs
         commands_per_job = max(1, (total_files + max_jobs - 1) // max_jobs)
+        print_status(f"Initial calculation: {commands_per_job} commands per job", "[DEBUG]")
         
         # Double-check: ensure we don't exceed max_jobs
         actual_jobs = (total_files + commands_per_job - 1) // commands_per_job
+        print_status(f"Initial job count: {actual_jobs}", "[DEBUG]")
         
         # If we still exceed max_jobs, increase commands_per_job
-        while actual_jobs > max_jobs:
+        iterations = 0
+        while actual_jobs > max_jobs and iterations < 100:  # Safety limit
             commands_per_job += 1
             actual_jobs = (total_files + commands_per_job - 1) // commands_per_job
+            iterations += 1
+            print_status(f"Iteration {iterations}: {commands_per_job} commands per job -> {actual_jobs} jobs", "[DEBUG]")
+        
+        if iterations >= 100:
+            print_status("WARNING: Exceeded maximum iterations in chunking calculation", "[WARN]")
         
         # Final verification
         actual_jobs = min(max_jobs, (total_files + commands_per_job - 1) // commands_per_job)
@@ -261,19 +301,42 @@ def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_ru
         temp_output_file = os.path.join(temp_dir, os.path.basename(output_file))
         
         # Create chunked version
-        chunked_path, _, _ = generate_chunked_task_file(files, temp_output_file, max_jobs)
+        chunked_path, chunked_jobs, chunked_commands = generate_chunked_task_file(files, temp_output_file, max_jobs)
+        
+        # Verify the chunked generation returned valid values
+        if chunked_jobs == 0 or chunked_commands == 0:
+            print_status("ERROR: Chunked file generation failed", "[ERROR]")
+            print_status("Cleaning up temporary directory and falling back to main file", "[ERROR]")
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                print_status(f"Warning: Could not clean up temporary directory: {e}", "[WARN]")
+            return task_file_path, None
+        
+        # Verify the generated file has the expected number of lines
+        try:
+            with open(chunked_path, 'r') as f:
+                actual_lines = sum(1 for line in f if line.strip() and not line.strip().startswith('#'))
+            print_status(f"Generated chunked file has {actual_lines} job lines", "[DEBUG]")
+            if actual_lines != chunked_jobs:
+                print_status(f"WARNING: Expected {chunked_jobs} jobs but generated file has {actual_lines} lines", "[WARN]")
+                print_status("This may indicate a problem with the chunking logic", "[WARN]")
+        except Exception as e:
+            print_status(f"Could not verify chunked file line count: {e}", "[WARN]")
         
         # Add a marker file to indicate this is a temp directory
         with open(os.path.join(temp_dir, ".gzip_up_temp"), 'w') as f:
             f.write(f"Original output: {output_file}\n")
             f.write(f"Created: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Chunked for SLURM: {actual_jobs} jobs, {commands_per_job} commands per job\n")
+            f.write(f"Chunked for SLURM: {chunked_jobs} jobs, {chunked_commands} commands per job\n")
             f.write(f"SLURM array limit: {max_jobs} max jobs\n")
+            f.write(f"Generated file lines: {actual_lines if 'actual_lines' in locals() else 'unknown'}\n")
         
         print_status(f"Chunked files created in temporary directory: {temp_dir}", "[INFO]")
         print_status(f"Main task file remains: {task_file_path}", "[INFO]")
         print_status(f"SLURM will use chunked version from: {chunked_path}", "[INFO]")
-        print_status(f"Job array size will be: {actual_jobs} (within {max_jobs} limit)", "[INFO]")
+        print_status(f"Job array size will be: {chunked_jobs} (within {max_jobs} limit)", "[INFO]")
         
         # Store temp directory info for cleanup later (return as tuple)
         return task_file_path, temp_dir
