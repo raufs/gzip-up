@@ -227,19 +227,32 @@ def generate_task_file(files: List[str], output_file: str = "gzip.cmds", auto_ru
         max_jobs = 1000
         
         # Calculate minimum commands per job needed to stay under 1000 jobs
+        # We need: total_files / commands_per_job <= max_jobs
+        # So: commands_per_job >= total_files / max_jobs
         commands_per_job = max(1, (total_files + max_jobs - 1) // max_jobs)
-        actual_jobs = min(max_jobs, (total_files + commands_per_job - 1) // commands_per_job)
         
-        # Ensure we don't exceed max_jobs
-        if actual_jobs > max_jobs:
-            commands_per_job = max(1, total_files // max_jobs)
-            actual_jobs = max_jobs
+        # Double-check: ensure we don't exceed max_jobs
+        actual_jobs = (total_files + commands_per_job - 1) // commands_per_job
+        
+        # If we still exceed max_jobs, increase commands_per_job
+        while actual_jobs > max_jobs:
+            commands_per_job += 1
+            actual_jobs = (total_files + commands_per_job - 1) // commands_per_job
+        
+        # Final verification
+        actual_jobs = min(max_jobs, (total_files + commands_per_job - 1) // commands_per_job)
         
         print_status(f"SLURM array limit: {max_jobs} max jobs", "[INFO]")
         print_status(f"Files to compress: {total_files}", "[INFO]")
         print_status(f"Jobs to submit: {actual_jobs}", "[INFO]")
         print_status(f"Commands per job: {commands_per_job}", "[INFO]")
         print_status(f"Estimated time per job: {30 + (commands_per_job - 1) * 5} minutes", "[INFO]")
+        
+        # Verify we're under the limit
+        if actual_jobs > max_jobs:
+            print_status(f"ERROR: Job count {actual_jobs} exceeds limit {max_jobs}", "[ERROR]")
+            print_status("This should never happen - please report this bug", "[ERROR]")
+            return task_file_path, None
         
         # Create temporary directory in current working directory
         temp_dir = os.path.join(os.getcwd(), f"gzip_up_chunks_{int(time.time())}")

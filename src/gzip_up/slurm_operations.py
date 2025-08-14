@@ -40,6 +40,13 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], task_fil
                     # Check if this is a chunked command (contains semicolons)
                     if ';' in stripped:
                         is_chunked = True
+        
+        # Safety check: if chunked, ensure array size doesn't exceed 1000
+        if is_chunked and array_size > 1000:
+            print_status(f"WARNING: Chunked task file has {array_size} jobs, but SLURM limit is 1000", "[WARN]")
+            print_status("This may cause SLURM submission to fail", "[WARN]")
+            print_status("Consider using --auto-run to automatically chunk large file sets", "[WARN]")
+            
     except Exception as e:
         print_status(f"Failed to read task file '{task_file}': {e}", "[ERROR]")
         array_size = 0
