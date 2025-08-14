@@ -280,6 +280,13 @@ def main():
     # Generate task file
     print_section("• Task File Generation")
     
+    # Check if output files already exist
+    if os.path.exists(args.output):
+        print_status(f"ERROR: Output file already exists: {args.output}", "[ERROR]")
+        print_status("Please remove or rename the existing file to continue", "[ERROR]")
+        print_status("This prevents accidentally overwriting previous work", "[ERROR]")
+        sys.exit(1)
+    
     # Determine if we should use chunking (only for --auto-run with >1000 files)
     use_chunking = args.auto_run and len(files) > 1000
     
@@ -333,6 +340,13 @@ def main():
     if args.slurm:
         print_section("• Slurm Script Generation")
         
+        # Check if SLURM script already exists
+        if os.path.exists("gzip_slurm.sh"):
+            print_status("ERROR: SLURM script already exists: gzip_slurm.sh", "[ERROR]")
+            print_status("Please remove or rename the existing script to continue", "[ERROR]")
+            print_status("This prevents accidentally overwriting previous work", "[ERROR]")
+            sys.exit(1)
+        
         # Use chunked file for SLURM if available, otherwise use main task file
         slurm_task_file = task_file
         if temp_dir and os.path.exists(os.path.join(temp_dir, os.path.basename(args.output))):
@@ -346,6 +360,15 @@ def main():
                 print_status("Note: Some SLURM clusters may have array size limits", "[WARN]")
             else:
                 print_status(f"Job array size: {len(files)} tasks", "[INFO]")
+        
+        # Check if chunked task file already exists in temp directory
+        if temp_dir and os.path.exists(os.path.join(temp_dir, os.path.basename(args.output))):
+            chunked_file = os.path.join(temp_dir, os.path.basename(args.output))
+            if os.path.exists(chunked_file):
+                print_status(f"ERROR: Chunked task file already exists: {chunked_file}", "[ERROR]")
+                print_status("Please remove the existing chunked files to continue", "[ERROR]")
+                print_status("This prevents accidentally overwriting previous work", "[ERROR]")
+                sys.exit(1)
         
         slurm_args = {
             'partition': args.partition,
@@ -363,6 +386,11 @@ def main():
         slurm_args = {k: v for k, v in slurm_args.items() if v is not None}
         
         script_path = generate_slurm_script(files, slurm_args, slurm_task_file)
+        
+        # Verify SLURM script exists
+        if not os.path.exists(script_path):
+            print_status(f"ERROR: SLURM script was not created: {script_path}", "[ERROR]")
+            sys.exit(1)
         
         if args.auto_run:
             print_section("• Slurm Job Submission")
