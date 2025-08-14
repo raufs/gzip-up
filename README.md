@@ -7,11 +7,11 @@ A Python program that scans directories for files with specific suffixes and gen
 
 It can also generate and optionally auto-submit Slurm batch scripts or auto-run locally using threading.
 
-> [!Warning]
-> THIS PROJECT IS STILL IN DEVELPMENT AND JUST AI GENERATED WITHOUT VETTING AT THIS POINT. DON'T USE.
+> [!WARNING]
+> This project is still in development. AI was used for its development and not all pieces might be working as intended; however, we have tried to prioritize safety throughout. 
 
 > [!IMPORTANT]
-> I AM A BIOINFORMATICIAN - IF POPULAR INTEREST - WE CAN ADD SAMTOOLS AS DEPENDENCY FOR SAM FILE TO BAM FILE COMPRESSION.
+> I am a bioinformatician, so if there is interest, we can add other commands besides gzip - like samtools to compress sam files to bam files.
 
 > [!NOTE]
 > If interested in compressing a really large file using threading/processing, check out [`pigz`](https://github.com/madler/pigz).
@@ -22,6 +22,7 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 - **Task File Generation**: Create command files ready for parallel execution
 - **Slurm Integration**: Generate Slurm batch scripts with customizable parameters
 - **Auto-submission**: Option to automatically submit jobs to Slurm (with confirmation)
+- **Smart Chunking**: Automatically chunk large file sets to respect SLURM job array limits (only if `--slurm --auto-run` issued!)
 - **Flexible Configuration**: Customize output files, Slurm parameters, and execution options
 
 ## Requirements
@@ -64,6 +65,8 @@ Generate Slurm batch script:
 python gzip_up.py -s .txt .log --slurm
 ```
 
+**Important**: The `--slurm` flag alone will create SLURM scripts for any number of files, potentially creating very large job arrays (e.g., 20,000 jobs for 20,000 files). Some SLURM clusters may have job array size limits.
+
 Customize Slurm parameters:
 ```bash
 python gzip_up.py -s .txt .log --slurm \
@@ -73,10 +76,16 @@ python gzip_up.py -s .txt .log --slurm \
   --time=01:00:00
 ```
 
-Auto-submit to Slurm (with confirmation):
+Auto-submit to Slurm with smart chunking (recommended for large file sets):
 ```bash
 python gzip_up.py -s .txt .log --slurm --auto-run
 ```
+
+**Smart Chunking with `--auto-run`**: When you specify `--auto-run` with more than 1000 files, the system automatically:
+- Creates chunked task files where each SLURM job processes multiple gzip commands
+- Ensures the job array never exceeds 1000 tasks (respecting SLURM limits)
+- Optimizes timing based on chunk size (30 min base + 5 min per additional command)
+- Creates temporary chunked files that are automatically cleaned up after execution
 
 ### Command Line Options
 
