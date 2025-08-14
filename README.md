@@ -10,6 +10,9 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 > [!IMPORTANT]
 > I AM A BIOINFORMATICIAN - IF POPULAR INTEREST - WE CAN ADD SAMTOOLS AS DEPENDENCY FOR SAM FILE TO BAM FILE COMPRESSION.
 
+> [!NOTE]
+> If interested in compressing a really large file using threading/processing, check out [`pigz`](https://github.com/madler/pigz).
+
 ## Features
 
 - **File Discovery**: Recursively scan directories for files with specified suffixes
