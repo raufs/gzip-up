@@ -320,10 +320,18 @@ def main():
         print_status("Using chunked approach for --auto-run with large file count", "[INFO]")
     elif args.auto_run and len(files) > 1000 and args.no_chunk:
         print_status("Auto-run with large file count but chunking disabled", "[INFO]")
+        use_chunking = False
+        max_jobs_for_chunking = None
     else:
         print_status("Using standard approach (no chunking)", "[INFO]")
+        use_chunking = False
+        max_jobs_for_chunking = None
     
-    result = generate_task_file(files, args.output, args.auto_run, max_jobs_for_chunking)
+    # Only pass max_jobs if we actually want chunking
+    if use_chunking:
+        result = generate_task_file(files, args.output, args.auto_run, max_jobs_for_chunking)
+    else:
+        result = generate_task_file(files, args.output, args.auto_run, None)
     
     # Handle return value (now just the file path)
     task_file_path = result
