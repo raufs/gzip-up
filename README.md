@@ -2,6 +2,9 @@
 
 A Python program that scans directories for files with specific suffixes and generates task files for gzip compression operations. 
 
+<img width="270" height="264" alt="image" src="https://github.com/user-attachments/assets/e9807d90-65f6-4056-9044-245343a064f8" />
+
+
 It can also generate and optionally auto-submit Slurm batch scripts or auto-run locally using threading.
 
 > [!Warning]
