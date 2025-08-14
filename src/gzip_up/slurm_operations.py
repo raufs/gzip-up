@@ -35,8 +35,8 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
         'cpus_per_task': '1',
         'mem_per_cpu': '1G',
         'time': '02:00:00',
-        'output': 'gzip_%A_%a.out',
-        'error': 'gzip_%A_%a.err'
+        'output': 'gzip_%j.out',
+        'error': 'gzip_%j.err'
     }
     
     # Merge user-provided args with defaults

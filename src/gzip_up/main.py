@@ -339,6 +339,7 @@ def main():
             print(f"  # Run locally: parallel < {task_file}")
             print(f"  # Note: SLURM script uses job arrays - each task processes one file from {task_file}")
             print(f"  # Defaults: partition=short, time=02:00:00, mem-per-cpu=1G")
+            print(f"  # Output: Single stdout/stderr files for entire job array (gzip_%j.out/err)")
     else:
         print_section("• Ready for Execution")
         print_status(f"Task file: {task_file}", "•")
