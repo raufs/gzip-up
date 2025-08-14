@@ -34,21 +34,6 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 - Standard Unix tools (gzip, parallel, etc.)
 - rich-argparse (automatically installed with the package)
 
-## Help System
-
-The program features a beautiful colored command-line interface powered by rich-argparse:
-
-```bash
-# Get help with colored output
-gzip-up --help
-
-# The help system provides:
-# - Colored ASCII art logo
-# - Professional argument grouping
-# - Clean, readable descriptions
-# - Concise command examples
-```
-
 ## Installation
 
 1. Clone or download the repository
@@ -62,7 +47,7 @@ gzip-up --help
    pip install .
    ```
 
-3. The `gzip-up` command will be available in your PATH
+3. The `gzip-up` command should now be available in your PATH
 
 ## Usage
 
@@ -241,15 +226,6 @@ xargs -P $(nproc) -a gzip.cmds
 bash gzip.cmds
 ```
 
-### Slurm Execution
-```bash
-# Submit batch job
-sbatch gzip_slurm.sh
-
-# Interactive execution
-srun --multi-prog gzip.cmds
-```
-
 ## Examples
 
 ### Example 1: Basic File Compression
@@ -301,7 +277,6 @@ gzip-up -d /data/large_files -s .log --slurm --auto-run
 # - Create chunked task files if >1000 files
 # - Limit job array to ≤1000 tasks
 # - Optimize timing per chunk
-# - Clean up temporary files after completion
 ```
 
 ### Example 3b: Auto-submission without Chunking
