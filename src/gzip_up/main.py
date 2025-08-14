@@ -21,22 +21,12 @@ from . import __version__
 
 
 class CustomRichHelpFormatter(RichHelpFormatter):
-    """Custom formatter that preserves epilog formatting while using rich-argparse."""
+    """Custom formatter that combines rich-argparse with proper width handling."""
     
-    def _format_text(self, text):
-        """Override to preserve newlines in epilog while keeping rich formatting."""
-        if text.startswith('Examples:'):
-            # For epilog, preserve formatting exactly as written
-            return text
-        else:
-            # For other text, use rich formatting
-            return super()._format_text(text)
-    
-    def _format_epilog(self, epilog):
-        """Override epilog formatting to preserve newlines."""
-        if epilog:
-            return epilog
-        return ""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.width = 80
+        self.max_help_position = 30
 
 
 def print_logo():
@@ -128,9 +118,16 @@ def create_colored_parser():
         add_help=True
     )
     
+    # Configure rich-argparse for better coloring
+    parser.formatter_class = CustomRichHelpFormatter # Use the custom formatter
+    parser.formatter_class.rich_theme = "dracula"
+    parser.formatter_class.rich_console_options = {"force_terminal": True, "color_system": "auto"}
+    parser.formatter_class.rich_show_help = True
+    # The width and max_help_position are now handled by CustomRichHelpFormatter
+    
     # File discovery options
     file_group = parser.add_argument_group(
-        "File Discovery Options",
+        "Main Options",
         "Configure which files to find and compress"
     )
     file_group.add_argument(
@@ -171,13 +168,13 @@ def create_colored_parser():
     slurm_group.add_argument(
         '--max-jobs',
         type=int,
-        help='Maximum number of jobs/lines in task file (enables chunking when exceeded)',
+        help='Maximum number of jobs in task file (enables chunking when exceeded)',
         metavar='N'
     )
     slurm_group.add_argument(
         '--no-chunk',
         action='store_true',
-        help='Disable automatic chunking for --auto-run (only applies if --auto-run is also specified)'
+        help='Disable automatic chunking for --auto-run'
     )
     
     # Local execution options
@@ -230,7 +227,7 @@ def create_colored_parser():
     )
     slurm_params_group.add_argument(
         '--mem-per-cpu', 
-        help='Memory per CPU (e.g., 1G, 2GB) - overrides --mem if specified',
+        help='Memory per CPU (e.g., 1G, 2GB) - overrides --mem',
         metavar='MEM'
     )
     slurm_params_group.add_argument(

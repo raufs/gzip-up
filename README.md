@@ -22,22 +22,45 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 - **Task File Generation**: Create command files ready for parallel execution
 - **Slurm Integration**: Generate Slurm batch scripts with customizable parameters
 - **Auto-submission**: Option to automatically submit jobs to Slurm (with confirmation)
-- **Smart Chunking**: Automatically chunk large file sets to respect SLURM job array limits (only if `--slurm --auto-run` issued!)
 - **Flexible Configuration**: Customize output files, Slurm parameters, and execution options
+- **Chunking Control**: Manual chunking with `--max-jobs` and optional auto-chunking with `--no-chunk`
 
 ## Requirements
 
 - Python 3.8+
 - Access to a Slurm cluster (for Slurm functionality)
 - Standard Unix tools (gzip, parallel, etc.)
+- rich-argparse (automatically installed with the package)
+
+## Help System
+
+The program features a beautiful colored command-line interface powered by rich-argparse:
+
+```bash
+# Get help with colored output
+gzip-up --help
+
+# The help system provides:
+# - Colored ASCII art logo
+# - Professional argument grouping
+# - Clean, readable descriptions
+# - Concise command examples
+```
 
 ## Installation
 
 1. Clone or download the repository
-2. Make the script executable:
+2. Install the package in development mode:
    ```bash
-   chmod +x gzip_up.py
+   pip install -e .
    ```
+   
+   Or install directly:
+   ```bash
+   pip install .
+   ```
+
+3. The `gzip-up` command will be available in your PATH
 
 ## Usage
 
@@ -45,49 +68,49 @@ It can also generate and optionally auto-submit Slurm batch scripts or auto-run 
 
 Scan current directory for `.txt` and `.log` files:
 ```bash
-python gzip_up.py -s .txt .log
+gzip-up -s .txt .log
 ```
 
 Scan specific directory:
 ```bash
-python gzip_up.py -d /path/to/files -s .txt .log
+gzip-up -d /path/to/files -s .txt .log
 ```
 
 Custom output file:
 ```bash
-python gzip_up.py -s .txt .log -o my_tasks.cmds
+gzip-up -s .txt .log -o my_tasks.cmds
 ```
 
 ### Slurm Integration
 
 Generate Slurm batch script:
 ```bash
-python -m gzip_up -s .txt .log --slurm
+gzip-up -s .txt .log --slurm
 ```
 
 **Important**: The `--slurm` flag alone will create SLURM scripts for any number of files, potentially creating very large job arrays (e.g., 20,000 jobs for 20,000 files). Some SLURM clusters may have job array size limits.
 
 **Manual Chunking**: You can control job array size using the `--max-jobs` option:
 ```bash
-python -m gzip_up -s .txt .log --slurm --max-jobs 500
+gzip-up -s .txt .log --slurm --max-jobs 500
 ```
 This will create chunked task files with a maximum of 500 jobs, regardless of file count.
 
 **Auto-run Options**: When using `--auto-run`, you can control chunking behavior:
 ```bash
 # Auto-run with automatic chunking (default for >1000 files)
-python -m gzip_up -s .txt .log --slurm --auto-run
+gzip-up -s .txt .log --slurm --auto-run
 
 # Auto-run without chunking (creates large job arrays)
-python -m gzip_up -s .txt .log --slurm --auto-run --no-chunk
+gzip-up -s .txt .log --slurm --auto-run --no-chunk
 
 # Auto-run with custom chunking limit
-python -m gzip_up -s .txt .log --slurm --auto-run --max-jobs 500
+gzip-up -s .txt .log --slurm --auto-run --max-jobs 500
 ```
 
 Customize Slurm parameters:
 ```bash
-python -m gzip_up -s .txt .log --slurm \
+gzip-up -s .txt .log --slurm \
   --partition=short \
   --ntasks=4 \
   --mem=8G \
@@ -96,39 +119,78 @@ python -m gzip_up -s .txt .log --slurm \
 
 Auto-submit to Slurm with smart chunking (recommended for large file sets):
 ```bash
-python -m gzip_up -s .txt .log --slurm --auto-run
+gzip-up -s .txt .log --slurm --auto-run
 ```
 
-**Smart Chunking with `--auto-run`**: When you specify `--auto-run` with more than 1000 files, the system automatically:
-- Creates chunked task files where each SLURM job processes multiple gzip commands
-- Ensures the job array never exceeds 1000 tasks (respecting SLURM limits)
-- Optimizes timing based on chunk size (30 min base + 5 min per additional command)
-- Creates temporary chunked files that are automatically cleaned up after execution
+### Chunking Behavior
+
+The program offers flexible chunking options to handle large file sets efficiently:
+
+#### **Manual Chunking (`--max-jobs`)**
+```bash
+# Limit to 500 jobs regardless of file count
+gzip-up -s .txt .log --slurm --max-jobs 500
+
+# This creates chunked task files where:
+# - Each line contains multiple gzip commands (semicolon-separated)
+# - Total jobs never exceeds your specified limit
+# - Files remain for manual review
+# - No automatic cleanup
+```
+
+#### **Auto-Chunking (`--auto-run` without `--no-chunk`)**
+```bash
+# Automatic chunking for >1000 files
+gzip-up -s .txt .log --slurm --auto-run
+
+# This automatically:
+# - Chunks files when count > 1000
+# - Limits job array to ≤1000 tasks
+# - Optimizes timing per chunk
+# - Creates chunked files directly in the main output location
+# - No temporary directories or cleanup needed
+```
+
+#### **No Chunking (`--auto-run --no-chunk`)**
+```bash
+# Disable automatic chunking
+gzip-up -s .txt .log --slurm --auto-run --no-chunk
+
+# This creates:
+# - Large job arrays (e.g., 20,000 jobs for 20,000 files)
+# - No chunking or temporary files
+# - May exceed SLURM job array limits on some clusters
+# - Standard SLURM execution
+```
 
 ### Command Line Options
 
 ```
--d, --directory DIR     Directory to scan (default: current directory)
--s, --suffixes SUFFIX   File suffixes to look for (required)
--o, --output FILE       Output task file name (default: gzip.cmds)
---slurm                 Generate Slurm batch script
---auto-run             Automatically submit to Slurm (requires --slurm)
---max-jobs N            Maximum number of jobs in task file (enables chunking when exceeded)
---no-chunk            Disable automatic chunking for --auto-run
+File Discovery Options:
+  -d, --directory DIR     Directory to scan (default: current directory)
+  -s, --suffixes SUFFIX   File suffixes to look for (required)
+  -o, --output FILE       Output task file name (default: gzip.cmds)
+
+Slurm Integration Options:
+  --slurm                 Generate Slurm batch script
+  --auto-run             Automatically submit to Slurm (requires --slurm)
+  --max-jobs N            Maximum number of jobs in task file (enables chunking when exceeded)
+  --no-chunk             Disable automatic chunking for --auto-run
+
+Local Execution Options:
+  --threads N            Number of threads for local execution (0 for auto-detect)
+  --local-run            Execute gzip operations locally using threading
 
 Slurm Parameters:
---partition PART        Slurm partition
---nodes N              Number of nodes
---ntasks N             Number of tasks
---cpus-per-task N      CPUs per task
---mem MEM              Memory per node
---time TIME            Time limit (HH:MM:SS)
---output-log FILE      Output log file
---error-log FILE       Error log file
-
-### Local Execution Options
---threads N            Number of threads for local execution (0 for auto-detect)
---local-run            Execute gzip operations locally using threading
+  --partition PART        Slurm partition (e.g., short, long, gpu)
+  --nodes N              Number of nodes
+  --ntasks N             Number of tasks
+  --cpus-per-task N      CPUs per task
+  --mem MEM              Memory per node (e.g., 8G, 16GB)
+  --mem-per-cpu MEM      Memory per CPU (e.g., 1G, 2GB) - overrides --mem
+  --time TIME            Time limit (HH:MM:SS)
+  --output-log FILE      Output log file
+  --error-log FILE       Error log file
 ```
 
 ## Output Files
@@ -150,7 +212,7 @@ Bash script with Slurm directives and execution logic.
 ### Local Execution
 ```bash
 # Using built-in threading (recommended)
-python -m gzip_up -s .txt .log --local-run --threads 4
+gzip-up -s .txt .log --local-run --threads 4
 
 # Using GNU parallel
 parallel < gzip.cmds
@@ -176,13 +238,13 @@ srun --multi-prog gzip.cmds
 ### Example 1: Basic File Compression
 ```bash
 # Find and compress all .txt files in current directory
-python -m gzip_up -s .txt
+gzip-up -s .txt
 
 # Review generated task file
 cat gzip.cmds
 
 # Execute locally with threading
-python -m gzip_up -s .txt --local-run --threads 4
+gzip-up -s .txt --local-run --threads 4
 
 # Or execute with parallel
 parallel < gzip.cmds
@@ -191,7 +253,7 @@ parallel < gzip.cmds
 ### Example 2: Slurm Batch Job (Small File Set)
 ```bash
 # Generate Slurm script for small dataset (≤1000 files)
-python -m gzip_up -d /data/small_files -s .csv .tsv --slurm \
+gzip-up -d /data/small_files -s .csv .tsv --slurm \
   --partition=short \
   --ntasks=16 \
   --mem=32G \
@@ -204,7 +266,7 @@ sbatch gzip_slurm.sh
 ### Example 2b: Manual Chunking Control
 ```bash
 # Generate Slurm script with manual chunking (max 500 jobs)
-python -m gzip_up -d /data/large_files -s .csv --slurm --max-jobs 500
+gzip-up -d /data/large_files -s .csv --slurm --max-jobs 500
 
 # This will:
 # - Create chunked task files with max 500 jobs
@@ -216,7 +278,7 @@ python -m gzip_up -d /data/large_files -s .csv --slurm --max-jobs 500
 ### Example 3: Auto-submission with Smart Chunking (Large File Set)
 ```bash
 # Generate and auto-submit with automatic chunking (>1000 files)
-python -m gzip_up -d /data/large_files -s .log --slurm --auto-run
+gzip-up -d /data/large_files -s .log --slurm --auto-run
 
 # This will automatically:
 # - Create chunked task files if >1000 files
@@ -228,7 +290,7 @@ python -m gzip_up -d /data/large_files -s .log --slurm --auto-run
 ### Example 3b: Auto-submission without Chunking
 ```bash
 # Generate and auto-submit without chunking (creates large job arrays)
-python -m gzip_up -d /data/large_files -s .log --slurm --auto-run --no-chunk
+gzip-up -d /data/large_files -s .log --slurm --auto-run --no-chunk
 
 # This will:
 # - Submit large job arrays (e.g., 20,000 jobs for 20,000 files)
