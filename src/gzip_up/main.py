@@ -10,7 +10,6 @@ import os
 import sys
 import argparse
 from typing import List, Set
-from rich_argparse import RichHelpFormatter
 from .utils import (
     print_header, print_section, print_status, print_progress, 
     display_file_summary
@@ -18,6 +17,7 @@ from .utils import (
 from .file_operations import generate_task_file, find_files_with_suffixes
 from .slurm_operations import generate_slurm_script, run_on_slurm
 from . import __version__
+
 
 def print_logo():
     """Print a cool ASCII art logo."""
@@ -94,13 +94,16 @@ def create_colored_parser():
     """Create a colorful and enhanced argument parser."""
     parser = argparse.ArgumentParser(
         description="Generate gzip task files and optionally run on Slurm or locally using threading",
-        formatter_class=RichHelpFormatter,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m gzip_up -s .txt .log
-  python -m gzip_up -d /path/to/files -s .txt .log -o my_tasks.cmds
-  python -m gzip_up -s .txt .log --local-run --threads 4
-  python -m gzip_up -s .txt .log --slurm --auto-run
+  gzip-up -s .txt .log
+
+  gzip-up -d /path/to/files -s .txt .log -o my_tasks.cmds
+
+  gzip-up -s .txt .log --local-run --threads 4
+
+  gzip-up -s .txt .log --slurm --auto-run
         """,
         add_help=True
     )
@@ -417,7 +420,7 @@ def main():
         print_status(f"Task file: {task_file_path}", "•")
         print()
         print("To run:")
-        print(f"  Using threading: python -m gzip_up -s {' '.join(args.suffixes)} --local-run --threads 4")
+        print(f"  Using threading: gzip-up -s {' '.join(args.suffixes)} --local-run --threads 4")
         print(f"  Using parallel: parallel < {task_file_path}")
         print(f"  Using xargs: xargs -P $(nproc) -a {task_file_path}")
         print(f"  Or run each command individually")
