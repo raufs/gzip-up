@@ -1,3 +1,47 @@
+Metadata-Version: 2.4
+Name: slurm-gzip
+Version: 1.0.0
+Summary: A Python program that scans directories for files with specific suffixes and generates task files for gzip compression operations with Slurm integration
+Author-email: Rauf Salamzade <salamzader@gmail.com>
+Maintainer-email: Rauf Salamzade <salamzader@gmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/raufs/slurm_gzip
+Project-URL: Repository, https://github.com/raufs/slurm_gzip.git
+Project-URL: Documentation, https://github.com/raufs/slurm_gzip#readme
+Project-URL: Issues, https://github.com/raufs/slurm_gzip/issues
+Project-URL: Changelog, https://github.com/raufs/slurm_gzip/releases
+Keywords: slurm,gzip,compression,batch-processing,hpc,cluster
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: System :: Archiving :: Compression
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: Utilities
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=7.0.0; extra == "test"
+Requires-Dist: pytest-cov>=4.0.0; extra == "test"
+Dynamic: license-file
+
 # Slurm Gzip Task Generator
 
 A Python program that scans directories for files with specific suffixes and generates task files for gzip compression operations. It can also generate and optionally auto-submit Slurm batch scripts.
@@ -82,10 +126,6 @@ Slurm Parameters:
 --time TIME            Time limit (HH:MM:SS)
 --output-log FILE      Output log file
 --error-log FILE       Error log file
-
-### Local Execution Options
---threads N            Number of threads for local execution (0 for auto-detect)
---local-run            Execute gzip operations locally using threading
 ```
 
 ## Output Files
@@ -106,9 +146,6 @@ Bash script with Slurm directives and execution logic.
 
 ### Local Execution
 ```bash
-# Using built-in threading (recommended)
-python -m slurm_gzip -s .txt .log --local-run --threads 4
-
 # Using GNU parallel
 parallel < gzip.cmds
 
@@ -133,22 +170,19 @@ srun --multi-prog gzip.cmds
 ### Example 1: Basic File Compression
 ```bash
 # Find and compress all .txt files in current directory
-python -m slurm_gzip -s .txt
+python slurm_gzip.py -s .txt
 
 # Review generated task file
 cat gzip.cmds
 
-# Execute locally with threading
-python -m slurm_gzip -s .txt --local-run --threads 4
-
-# Or execute with parallel
+# Execute locally
 parallel < gzip.cmds
 ```
 
 ### Example 2: Slurm Batch Job
 ```bash
 # Generate Slurm script for large dataset
-python -m slurm_gzip -d /data/large_files -s .csv .tsv --slurm \
+python slurm_gzip.py -d /data/large_files -s .csv .tsv --slurm \
   --partition=long \
   --ntasks=16 \
   --mem=32G \
@@ -161,7 +195,7 @@ sbatch gzip_slurm.sh
 ### Example 3: Auto-submission with Confirmation
 ```bash
 # Generate and auto-submit (will prompt for confirmation)
-python -m slurm_gzip -d /data/files -s .log --slurm --auto-run
+python slurm_gzip.py -d /data/files -s .log --slurm --auto-run
 ```
 
 ## Safety Features
@@ -178,14 +212,6 @@ python -m slurm_gzip -d /data/files -s .log --slurm --auto-run
 3. **Use appropriate** Slurm parameters for your cluster
 4. **Monitor jobs** using `squeue` and `sacct` commands
 5. **Check logs** for any compression errors
-
-### Threading vs Multiprocessing
-
-For gzip operations, **threading is recommended** over multiprocessing because:
-- **I/O Bound**: Gzip compression is primarily I/O bound (file reading/writing)
-- **Memory Efficient**: Threads share memory space, processes duplicate memory
-- **GIL Friendly**: Python's Global Interpreter Lock doesn't significantly impact I/O operations
-- **Optimal Thread Count**: Use `--threads 0` for auto-detection, or manually set to 4-8 threads
 
 ## Troubleshooting
 

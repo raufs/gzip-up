@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slurm-gzip"
+version = "1.0.0"
+description = "A Python program that scans directories for files with specific suffixes and generates task files for gzip compression operations with Slurm integration"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Rauf Salamzade", email = "salamzader@gmail.com"}
+]
+maintainers = [
+    {name = "Rauf Salamzade", email = "salamzader@gmail.com"}
+]
+keywords = ["slurm", "gzip", "compression", "batch-processing", "hpc", "cluster"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: System :: Archiving :: Compression",
+    "Topic :: System :: Distributed Computing",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+slurm-gzip = "slurm_gzip.main:main"
+
+[project.urls]
+Homepage = "https://github.com/raufs/slurm_gzip"
+Repository = "https://github.com/raufs/slurm_gzip.git"
+Documentation = "https://github.com/raufs/slurm_gzip#readme"
+Issues = "https://github.com/raufs/slurm_gzip/issues"
+Changelog = "https://github.com/raufs/slurm_gzip/releases"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+src_paths = ["src"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/env/*",
+    "build/*",
+    "dist/*",
+]

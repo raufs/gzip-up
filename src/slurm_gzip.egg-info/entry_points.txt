@@ -1,0 +1,2 @@
+[console_scripts]
+slurm-gzip = slurm_gzip.main:main
