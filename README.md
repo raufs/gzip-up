@@ -224,7 +224,26 @@ Add `-v` or `--verbose` for more detailed output (if implemented).
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the GNU General Public License v3 - see the LICENSE file for details.
+
+The GNU GPL is a free, copyleft license that ensures the software remains free and open source. This means:
+- You can use, modify, and distribute the software
+- Any derivative works must also be released under the GPL
+- The source code must be made available
+- The software cannot be incorporated into proprietary programs
+
+For more information about the GNU GPL, visit: https://www.gnu.org/licenses/
+
+## Disclaimer
+
+**This software is provided "AS IS" without warranty of any kind.** Use at your own risk. The authors are not liable for any damages resulting from the use of this software.
+
+**Important Notes:**
+- This project is still in development and has been AI-generated without comprehensive vetting
+- **DO NOT USE** in production environments without thorough testing
+- Always backup your data before running compression operations
+- Test with small file sets before processing large datasets
+- The software may contain bugs or errors that could result in data loss
 
 ## Contributing
 

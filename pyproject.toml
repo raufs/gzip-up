@@ -7,7 +7,7 @@ name = "gzip-up"
 version = "1.0.1"
 description = "A Python program that scans directories for files with specific suffixes and generates task files for gzip compression operations with Slurm integration"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GNU General Public License v3"}
 authors = [
     {name = "Rauf Salamzade", email = "salamzader@gmail.com"}
 ]
