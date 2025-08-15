@@ -11,6 +11,7 @@ import os
 import sys
 from pathlib import Path
 from typing import List, Set
+from rich_argparse import RichHelpFormatter
 
 from .utils import (
     print_header,
@@ -22,6 +23,15 @@ from .utils import (
 from .file_operations import find_files_with_suffixes, generate_task_file
 from .slurm_operations import generate_slurm_script
 from . import __version__
+
+
+class CustomRichHelpFormatter(RichHelpFormatter):
+    """Custom formatter that combines rich-argparse with proper width handling."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.width = 80
+        self.max_help_position = 30
 
 
 def print_logo():
@@ -107,31 +117,16 @@ def validate_suffixes(suffixes: List[str]) -> Set[str]:
 def create_colored_parser():
     """Create a colorful and enhanced argument parser."""
     parser = argparse.ArgumentParser(
-        description="[*] Generate gzip task files and optionally run on Slurm",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-[*]  Examples:
-  # Basic usage - scan current directory for .txt and .log files
-  [*] python -m gzip_up -s .txt .log
-  
-  # Scan specific directory with custom output file
-  [*] python -m gzip_up -d /path/to/files -s .txt .log -o my_tasks.cmds
-  
-  # Run locally with 4 threads
-  [*] python -m gzip_up -d /path/to/files -s .txt .log --local-run --threads 4
-  
-  # Generate Slurm script with custom parameters
-  [*] python -m gzip_up -d /path/to/files -s .txt .log --slurm --partition=short --ntasks=4
-
-[*]  Tips:
-  • Use -s to specify file suffixes (e.g., .txt, .log, .csv)
-  • Use --local-run for immediate local execution with threading
-  • Use --threads 0 for auto-detection of optimal thread count
-  • Add --slurm to generate Slurm batch scripts
-  • Check generated files before execution
-        """,
+        description="Generate compression commands and ",
+        formatter_class=CustomRichHelpFormatter,
         add_help=True
     )
+    
+    # Configure rich-argparse for better coloring
+    parser.formatter_class = CustomRichHelpFormatter
+    parser.formatter_class.rich_theme = "dracula"
+    parser.formatter_class.rich_console_options = {"force_terminal": True, "color_system": "auto"}
+    parser.formatter_class.rich_show_help = True
     
     # File discovery options
     file_group = parser.add_argument_group(
@@ -146,9 +141,9 @@ def create_colored_parser():
     )
     file_group.add_argument(
         '-s', '--suffixes', 
-        nargs='+', 
-        required=True,
-        help='File suffixes to look for (e.g., .txt .log .csv)',
+        nargs='*', 
+        required=False,
+        help='File suffixes to look for (e.g., .fastq .fastq.gz .txt .log). Not required with --gunzip, --sam-to-bam, or --bam-to-sam modes.',
         metavar='SUFFIX'
     )
     file_group.add_argument(
@@ -158,9 +153,30 @@ def create_colored_parser():
         metavar='FILE'
     )
     
+    # Modes
+    modes_group = parser.add_argument_group(
+        "Modes",
+        "Choose between compression, decompression, or SAM/BAM conversion"
+    )
+    modes_group.add_argument(
+        '--gunzip',
+        action='store_true',
+        help='Decompress .gz files instead of compressing (ignores -s/--suffixes)'
+    )
+    modes_group.add_argument(
+        '--sam-to-bam',
+        action='store_true',
+        help='Convert SAM files to BAM format using samtools'
+    )
+    modes_group.add_argument(
+        '--bam-to-sam',
+        action='store_true',
+        help='Convert BAM files to SAM format using samtools'
+    )
+
     # Slurm options
     slurm_group = parser.add_argument_group(
-        "[*] Slurm Integration Options",
+        "Slurm Integration Options",
         "Configure Slurm batch job parameters"
     )
     slurm_group.add_argument(
@@ -244,6 +260,19 @@ def create_colored_parser():
         metavar='FILE'
     )
     
+    # Examples and Tips
+    examples_group = parser.add_argument_group(
+        "Examples",
+        "Common usage patterns"
+    )
+    examples_group.add_argument(
+        '--show-examples',
+        action='store_true',
+        help='Show detailed examples and exit'
+    )
+    
+
+    
     return parser
 
 
@@ -256,19 +285,81 @@ def main():
     parser = create_colored_parser()
     args = parser.parse_args()
     
+    # Handle examples display
+    if hasattr(args, 'show_examples') and args.show_examples:
+        examples_help = """Examples:
+  # Basic usage - scan current directory for .fastq files
+  gzip-up -s .fastq
+  
+  # Scan specific directory with custom output file
+  gzip-up -d /path/to/files -s .fastq .fastq.gz -o my_tasks.cmds
+  
+  # Run locally with 4 threads
+  gzip-up -d /path/to/files -s .fastq --local-run --threads 4
+  
+  # Generate Slurm script with custom parameters
+  gzip-up -d /path/to/files -s .fastq .fastq.gz --slurm --partition=short --ntasks=4
+  
+  # Decompress .gz files
+  gzip-up --gunzip --local-run --threads 4
+  
+  # Convert SAM to BAM
+  gzip-up --sam-to-bam --local-run --threads 4
+  
+  # Convert BAM to SAM
+  gzip-up --bam-to-sam --local-run --threads 4
+
+Tips:
+  • Use -s to specify file suffixes (e.g., .fastq, .fastq.gz, .txt, .log)
+  • Use --gunzip to decompress .gz files (ignores -s/--suffixes)
+  • Use --sam-to-bam or --bam-to-sam for SAM/BAM conversion
+  • Use --local-run for immediate local execution with threading
+  • Use --threads 0 for auto-detection of optimal thread count
+  • Add --slurm to generate Slurm batch scripts
+  • Check generated files before execution"""
+        
+        print_header("[*] Examples and Usage")
+        print(examples_help)
+        sys.exit(0)
+    
+    # Determine operation mode
+    operation_mode = "gzip"
+    if args.gunzip:
+        operation_mode = "gunzip"
+    elif args.sam_to_bam:
+        operation_mode = "sam_to_bam"
+    elif args.bam_to_sam:
+        operation_mode = "bam_to_sam"
+    
+
+    
+    # Check if suffixes are provided (not required for certain modes)
+    if not args.suffixes and operation_mode == "gzip":
+        print_status("[ERROR] File suffixes (-s/--suffixes) are required for gzip mode.", "[ERROR]")
+        print_status("Use --show-examples to see usage examples.", "[INFO]")
+        sys.exit(1)
+    
     # Validate arguments
     if not os.path.isdir(args.directory):
         print_status(f"[ERROR] Directory '{args.directory}' does not exist.", "[ERROR]")
         sys.exit(1)
     
-    # Validate and normalize suffixes
-    try:
-        suffixes = validate_suffixes(args.suffixes)
-    except ValueError as e:
-        print_status(str(e), "[ERROR]")
-        sys.exit(1)
+    # Determine suffixes based on mode
+    if operation_mode == "gunzip":
+        suffixes = {".gz"}
+    elif operation_mode == "sam_to_bam":
+        suffixes = {".sam"}
+    elif operation_mode == "bam_to_sam":
+        suffixes = {".bam"}
+    else:
+        # Validate and normalize user-provided suffixes
+        try:
+            suffixes = validate_suffixes(args.suffixes)
+        except ValueError as e:
+            print_status(str(e), "[ERROR]")
+            sys.exit(1)
     
-    print_header("[*] Gzip-up Task Generator")
+    print_header(f"[*] Gzip-up Task Generator - {operation_mode.upper()} Mode")
     
     # Find matching files
     files = find_files_with_suffixes(args.directory, suffixes)
@@ -296,9 +387,9 @@ def main():
     
     # Generate task file with or without chunking
     if use_chunking:
-        task_file_path = generate_task_file(files, args.output, max_jobs_for_chunking)
+        task_file_path = generate_task_file(files, args.output, max_jobs_for_chunking, operation_mode, args)
     else:
-        task_file_path = generate_task_file(files, args.output)
+        task_file_path = generate_task_file(files, args.output, operation_mode=operation_mode, mode_args=args)
     
     print_status(f"Task file generated: {task_file_path}", "[OK]")
     
@@ -306,7 +397,7 @@ def main():
     if args.local_run:
         print_section("[*] Local Threading Execution")
         from .file_operations import execute_gzip_local
-        results = execute_gzip_local(files, args.threads)
+        results = execute_gzip_local(files, args.threads, operation_mode, args)
         
         if results['errors'] > 0:
             print_status(f"Local execution completed with {results['errors']} errors", "[WARN]")
@@ -330,7 +421,7 @@ def main():
         # Remove None values
         slurm_args = {k: v for k, v in slurm_args.items() if v is not None}
         
-        script_path = generate_slurm_script(files, slurm_args)
+        script_path = generate_slurm_script(files, slurm_args, operation_mode)
         
         print_section("[*] Ready for Manual Execution")
         print_status(f"Task file: {task_file_path}", "[*]")
@@ -347,13 +438,21 @@ def main():
         print_status(f"Task file: {task_file_path}", "[*]")
         print()
         print("To run:")
-        print(f"  # Using threading: python -m gzip_up -s {' '.join(args.suffixes)} --local-run --threads 4")
+        if operation_mode == "gzip":
+            print(f"  # Using threading: gzip-up -s {' '.join(args.suffixes)} --local-run --threads 4")
+        elif operation_mode == "gunzip":
+            print(f"  # Using threading: gzip-up --gunzip --local-run --threads 4")
+        elif operation_mode == "sam_to_bam":
+            print(f"  # Using threading: gzip-up --sam-to-bam --local-run --threads 4")
+        elif operation_mode == "bam_to_sam":
+            print(f"  # Using threading: gzip-up --bam-to-sam --local-run --threads 4")
+        
         print(f"  # Using parallel: parallel < {task_file_path}")
         print(f"  # Using xargs: xargs -P $(nproc) -a {task_file_path}")
         print(f"  # Or run each command individually")
     
     print_header("[*] Task Complete!")
-    print_status("All files generated successfully. Happy compressing!", "[*]")
+    print_status("All files generated successfully. Happy processing!", "[*]")
 
 
 if __name__ == "__main__":

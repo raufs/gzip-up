@@ -10,13 +10,14 @@ from typing import List, Dict
 from .utils import print_status
 
 
-def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
+def generate_slurm_script(files: List[str], slurm_args: Dict[str, str], operation_mode: str = "gzip") -> str:
     """
-    Generate a Slurm batch script for gzip operations using job arrays.
+    Generate a Slurm batch script for file operations using job arrays.
     
     Args:
-        files: List of file paths to compress
+        files: List of file paths to process
         slurm_args: Dictionary of Slurm parameters
+        operation_mode: Operation mode ("gzip", "gunzip", "sam_to_bam", "bam_to_sam")
         
     Returns:
         Path to the generated Slurm script
@@ -26,15 +27,22 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
     print_status(f"Generating Slurm script: {script_path}")
     
     # Set sensible defaults for Slurm parameters
+    job_name_map = {
+        "gzip": "gzip_compression",
+        "gunzip": "gunzip_decompression",
+        "sam_to_bam": "sam_to_bam_conversion",
+        "bam_to_sam": "bam_to_sam_conversion"
+    }
+    
     defaults = {
-        'job_name': 'gzip_compression',
+        'job_name': job_name_map.get(operation_mode, 'file_processing'),
         'ntasks': '1',
         'cpus_per_task': '4',
         'mem_per_cpu': '2G',
         'partition': 'short',
         'time': '02:00:00',
-        'output': 'gzip_%A_%a.out',
-        'error': 'gzip_%A_%a.err'
+        'output': f"{operation_mode}_%A_%a.out",
+        'error': f"{operation_mode}_%A_%a.err"
     }
     
     # Override defaults with user-provided values
@@ -57,12 +65,27 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
                 # Direct mapping for other parameters
                 defaults[key] = value
     
-    # Count uncompressed files for array size
-    uncompressed_files = [f for f in files if not f.endswith('.gz')]
-    array_size = len(uncompressed_files)
+    # Count processable files for array size based on operation mode
+    if operation_mode == "gzip":
+        processable_files = [f for f in files if not f.endswith('.gz')]
+        mode_description = "gzip compression"
+    elif operation_mode == "gunzip":
+        processable_files = [f for f in files if f.endswith('.gz')]
+        mode_description = "gunzip decompression"
+    elif operation_mode == "sam_to_bam":
+        processable_files = [f for f in files if f.endswith('.sam')]
+        mode_description = "SAM to BAM conversion"
+    elif operation_mode == "bam_to_sam":
+        processable_files = [f for f in files if f.endswith('.bam')]
+        mode_description = "BAM to SAM conversion"
+    else:
+        processable_files = [f for f in files if not f.endswith('.gz')]
+        mode_description = "file processing"
+    
+    array_size = len(processable_files)
     
     if array_size == 0:
-        print_status("No uncompressed files found for Slurm script", "[WARN]")
+        print_status(f"No files found for {mode_description} in Slurm script", "[WARN]")
         return ""
     
     # Get the task file name from the output parameter or use default
@@ -81,9 +104,9 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
     
     if is_chunked:
         print_status("Chunked execution detected - task file contains multiple commands per line", "[INFO]")
-        print_status("Each SLURM array task will process multiple gzip operations", "[INFO]")
+        print_status(f"Each SLURM array task will process multiple {mode_description} operations", "[INFO]")
     else:
-        print_status("Standard execution - each SLURM array task processes one file", "[INFO]")
+        print_status(f"Standard execution - each SLURM array task processes one file for {mode_description}", "[INFO]")
     
     with open(script_path, 'w') as f:
         f.write("#!/bin/bash\n")
@@ -100,7 +123,7 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
         f.write("\n# Load any required modules\n")
         f.write("# module load your_module\n\n")
         
-        f.write("echo \"Starting gzip compression job\"\n")
+        f.write(f"echo \"Starting {mode_description} job\"\n")
         f.write("echo \"Job ID: $SLURM_JOB_ID\"\n")
         f.write("echo \"Array Job ID: $SLURM_ARRAY_JOB_ID\"\n")
         f.write("echo \"Array Task ID: $SLURM_ARRAY_TASK_ID\"\n")
@@ -111,15 +134,15 @@ def generate_slurm_script(files: List[str], slurm_args: Dict[str, str]) -> str:
         f.write(f"task_file=\"{task_file_name}\"\n\n")
         
         f.write("# Extract the individual command for this array task\n")
-        f.write("gzip_cmd=$(awk -v SID=$SLURM_ARRAY_TASK_ID 'NR==SID {print; exit}' $task_file)\n\n")
+        f.write("task_cmd=$(awk -v SID=$SLURM_ARRAY_TASK_ID 'NR==SID {print; exit}' $task_file)\n\n")
         
-        f.write("echo \"Executing: $gzip_cmd\"\n")
+        f.write("echo \"Executing: $task_cmd\"\n")
         f.write("echo \"Task $SLURM_ARRAY_TASK_ID of $SLURM_ARRAY_TASK_COUNT\"\n\n")
         
-        f.write("# Execute the gzip command\n")
-        f.write("eval $gzip_cmd\n\n")
+        f.write(f"# Execute the {mode_description} command\n")
+        f.write("eval $task_cmd\n\n")
         
-        f.write("echo \"Gzip compression task $SLURM_ARRAY_TASK_ID completed\"\n")
+        f.write(f"echo \"{mode_description} task $SLURM_ARRAY_TASK_ID completed\"\n")
     
     # Make script executable
     os.chmod(script_path, 0o755)
