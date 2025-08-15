@@ -334,11 +334,17 @@ def generate_command(file_path: str, operation_mode: str, mode_args=None) -> str
         return f"gunzip '{file_path}'"
     elif operation_mode == "sam_to_bam":
         # Generate output filename
-        output_file = file_path.replace('.sam', '.bam')
+        fps = file_path.split('.')
+        file_path_prefix, suffix = '.'.join(fps[:-1]), fps[-1]
+        assert suffix == 'sam'
+        output_file = f"{file_path_prefix}.bam"
         return f"samtools view -bS -o '{output_file}' '{file_path}'"
     elif operation_mode == "bam_to_sam":
         # Generate output filename
-        output_file = file_path.replace('.bam', '.sam')
+        fps = file_path.split('.')
+        file_path_prefix, suffix = '.'.join(fps[:-1]), fps[-1]
+        assert suffix == 'bam'
+        output_file = f"{file_path_prefix}.sam"
         return f"samtools view -h -o '{output_file}' '{file_path}'"
     
     return None

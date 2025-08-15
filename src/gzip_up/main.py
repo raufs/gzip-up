@@ -117,7 +117,7 @@ def validate_suffixes(suffixes: List[str]) -> Set[str]:
 def create_colored_parser():
     """Create a colorful and enhanced argument parser."""
     parser = argparse.ArgumentParser(
-        description="Generate compression commands and ",
+        description="Generate (de)compression command/task list file and optionally a Slurm script.",
         formatter_class=CustomRichHelpFormatter,
         add_help=True
     )
